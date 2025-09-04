@@ -14,9 +14,9 @@
 #ifndef AURORASTREAM_CORE_MEDIAPLAYER_H
 #define AURORASTREAM_CORE_MEDIAPLAYER_H
 
-#include <QObject> // 提供信号槽机制
-#include <QString> // 提供字符串支持
-#include <QUrl> // 提供URL支持
+#include <QObject>
+#include <QString>
+#include <QUrl>
 
 #include "aurorastream/AuroraStream.h"
 
@@ -27,16 +27,8 @@ struct AVFrame;
 struct SwsContext;
 struct SwrContext;
 
-/**
- * @namespace aurorastream
- * @brief 项目命名空间
- */
-namespace aurorastream {
 
-/**
- * @namespace aurorastream::core
- * @brief 核心模块命名空间
- */
+namespace aurorastream {
 namespace core {
 
 /**

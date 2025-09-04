@@ -22,32 +22,13 @@ QT_BEGIN_NAMESPACE
 class QVBoxLayout;
 QT_END_NAMESPACE
 
-/**
- * @namespace aurorastream
- * @brief AuroraStream 应用程序命名空间。
- */
 namespace aurorastream {
-
-/**
- * @namespace aurorastream::core
- * @brief AuroraStream 核心功能命名空间。
- */
 namespace core {
     class MediaPlayer; // 媒体播放器核心类
 }
 
-/**
- * @namespace aurorastream::modules
- * @brief AuroraStream 模块命名空间。
- */
 namespace modules {
-
-/**
- * @namespace aurorastream::modules::ui
- * @brief AuroraStream UI 模块命名空间。
- */
 namespace ui {
-
 class VideoWidget; // 视频显示部件
 class ControlPanel; // 控制面板部件
 

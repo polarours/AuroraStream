@@ -1,11 +1,13 @@
-/********************************************************************************
- * @file   : ControlPanel.h
- * @brief  : 声明 AuroraStream 媒体控制面板部件类。
+********************************************************************************
+ * @file   : MediaPlayer.h
+ * @brief  : 媒体播放器类定义
  *
- * ControlPanel 提供播放控制按钮和进度条，用于与 MediaPlayer 交互。
+ * 此文件定义了 aurorastream::core::MediaPlayer 类，它是 AuroraStream 框架用于
+ * 控制媒体播放流程的主要接口。它提供了播放控制（播放、暂停、停止、Seek）、
+ * 状态查询（播放状态、时长、位置）以及文件打开等核心功能。
  *
  * @Author : polarours
- * @Date   : 2025/8/22
+ * @Date   : 2025/08/21
  ********************************************************************************/
 
 // include/aurorastream/modules/ui/ControlPanel.h
@@ -21,34 +23,14 @@ class QSlider;
 class QLabel;
 QT_END_NAMESPACE
 
-/**    
- * @namespace aurorastream
- * @brief AuroraStream 命名空间。
- */
 namespace aurorastream {
-
-/**
- * @namespace aurorastream::core
- * @brief AuroraStream 核心模块命名空间。
- */
 namespace core {
     class MediaPlayer;
     enum class MediaPlayerState;
 }
 
-/**
- * @namespace aurorastream::modules
- * @brief AuroraStream 模块命名空间。
- * @details AuroraStream 模块命名空间包含 AuroraStream 的所有模块。
- */
 namespace modules {
-
-/**
- * @namespace aurorastream::modules::ui
- * @brief AuroraStream UI 模块命名空间。
- */
 namespace ui {
-
 /**
  * @class ControlPanel
  * @brief 媒体控制面板类。
