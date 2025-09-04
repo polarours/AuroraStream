@@ -21,17 +21,39 @@ class QSlider;
 class QLabel;
 QT_END_NAMESPACE
 
+/**    
+ * @namespace aurorastream
+ * @brief AuroraStream 命名空间。
+ */
 namespace aurorastream {
+
+/**
+ * @namespace aurorastream::core
+ * @brief AuroraStream 核心模块命名空间。
+ */
 namespace core {
     class MediaPlayer;
     enum class MediaPlayerState;
 }
-}
 
-namespace aurorastream {
+/**
+ * @namespace aurorastream::modules
+ * @brief AuroraStream 模块命名空间。
+ * @details AuroraStream 模块命名空间包含 AuroraStream 的所有模块。
+ */
 namespace modules {
+
+/**
+ * @namespace aurorastream::modules::ui
+ * @brief AuroraStream UI 模块命名空间。
+ */
 namespace ui {
 
+/**
+ * @class ControlPanel
+ * @brief 媒体控制面板类。
+ * @details ControlPanel 提供播放控制按钮和进度条，用于与 MediaPlayer 交互。
+ */
 class AURORASTREAM_API ControlPanel : public QWidget {
     Q_OBJECT
 

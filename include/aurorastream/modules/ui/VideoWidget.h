@@ -16,23 +16,45 @@
 #include <QWidget> // Qt 基础窗口部件类
 #include <memory> // 智能指针支持
 
+/**
+ * @namespace aurorastream
+ * @brief AuroraStream 应用程序命名空间。
+ */
 namespace aurorastream {
 
+/**
+ * @namespace aurorastream::modules
+ * @brief AuroraStream 应用程序模块命名空间。
+ */ 
 namespace core {
     class MediaPlayer;
 }
 
+/**
+ * @namespace aurorastream::modules::media
+ * @brief AuroraStream 应用程序媒体模块命名空间。
+ */
 namespace modules {
+
+/**
+ * @namespace aurorastream::modules::media
+ * @brief AuroraStream 应用程序媒体模块命名空间。
+ */
 namespace media {
+
+/**
+ * @namespace aurorastream::modules::media::renderer
+ * @brief AuroraStream 应用程序媒体渲染器模块命名空间。
+ */  
 namespace renderer {
     class VideoRenderer;
 }
 }
-}
-}
 
-namespace aurorastream {
-namespace modules {
+/**
+ * @namespace aurorastream::modules::ui
+ * @brief AuroraStream 应用程序 UI 模块命名空间。
+ */  
 namespace ui {
 
 /**
@@ -53,8 +75,8 @@ public:
     explicit VideoWidget(QWidget *parent = nullptr);
 
     /**
-         * @brief VideoWidget 析构函数。
-         */
+     * @brief VideoWidget 析构函数。
+     */
     ~VideoWidget() override;
 
     /**

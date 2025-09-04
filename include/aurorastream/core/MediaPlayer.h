@@ -14,18 +14,13 @@
 #ifndef AURORASTREAM_CORE_MEDIAPLAYER_H
 #define AURORASTREAM_CORE_MEDIAPLAYER_H
 
-// --- 包含必要的 Qt 头文件 ---
 #include <QObject> // 提供信号槽机制
 #include <QString> // 提供字符串支持
 #include <QUrl> // 提供URL支持
 
-// --- 包含 AuroraStream 核心库的导出宏定义 ---
-// 假设 AuroraStream.h 中定义了 AURORASTREAM_API 宏
 #include "aurorastream/AuroraStream.h"
 
 // --- 前向声明 FFmpeg 结构体 ---
-// 避免在头文件中直接包含庞大的 FFmpeg 头文件，减少编译依赖
-// 具体的结构体定义和使用将在 .cpp 文件中包含 <libavformat/avformat.h> 等
 struct AVFormatContext;
 struct AVCodecContext;
 struct AVFrame;
@@ -158,7 +153,7 @@ signals:
     void positionChanged(qint64 position);
 
     /**
-     * @brief 时长确定时发出。
+     * @brief 时长改变时发出。
      * @param duration 媒体总时长 (毫秒)。
      */
     void durationChanged(qint64 duration);
@@ -176,20 +171,17 @@ signals:
     void error(const QString& message);
 
 private:
-    // --- 内部成员变量 ---
-    State m_state;           ///< 当前播放状态
-    QString m_currentMedia;  ///< 当前媒体文件路径
-    qint64 m_duration;       ///< 媒体总时长 (毫秒)
-    qint64 m_position;       ///< 当前播放位置 (毫秒)
 
-    // --- 简化版 FFmpeg 句柄 (供 .cpp 文件使用) ---
-    // 注意：实际的结构体定义在 .cpp 文件中包含的 FFmpeg 头文件里。
-    // 这里只是声明指针，避免在头文件中暴露复杂的 FFmpeg 内部结构。
-    void* m_formatContext; ///< FFmpeg 格式上下文指针 (实际类型是 AVFormatContext*)
+    State m_state;             ///< 当前播放状态
+    QString m_currentMedia;    ///< 当前媒体文件路径
+    qint64 m_duration;         ///< 媒体总时长 (毫秒)
+    qint64 m_position;         ///< 当前播放位置 (毫秒)
+
+    void* m_formatContext;     ///< FFmpeg 格式上下文指针 (实际类型是 AVFormatContext*)
     void* m_videoCodecContext; ///< FFmpeg 视频解码器上下文指针
     void* m_audioCodecContext; ///< FFmpeg 音频解码器上下文指针
-    int m_videoStreamIndex; ///< 视频流索引
-    int m_audioStreamIndex; ///< 音频流索引
+    int m_videoStreamIndex;    ///< 视频流索引
+    int m_audioStreamIndex;    ///< 音频流索引
 };
 
 } // namespace core
