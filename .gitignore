@@ -39,3 +39,9 @@
 
 # debug information files
 *.dwo
+
+# 忽略JetBrains IDE的配置文件
+.idea/
+*.iml
+*.iws
+*.ipr
