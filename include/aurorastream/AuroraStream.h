@@ -1,11 +1,3 @@
-/*
- * @Description: 
- * @Author: polarours
- * @version: 
- * @Date: 2025-09-04 11:19:26
- * @LastEditors: polarours
- * @LastEditTime: 2025-09-04 19:29:08
- */
 /********************************************************************************
  * @file   : aurorastream.h
  * @brief  : aurorastream 媒体框架库的主包含文件。
