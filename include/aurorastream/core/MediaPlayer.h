@@ -6,11 +6,10 @@
  * 控制媒体播放流程的主要接口。它提供了播放控制（播放、暂停、停止、Seek）、
  * 状态查询（播放状态、时长、位置）以及文件打开等核心功能。
  *
- * @Author : polarours
- * @Date   : 2025/08/21
+ * @author : polarours
+ * @date   : 2025/08/21
  ********************************************************************************/
 
-// include/aurorastream/core/MediaPlayer.h
 #ifndef AURORASTREAM_CORE_MEDIAPLAYER_H
 #define AURORASTREAM_CORE_MEDIAPLAYER_H
 
@@ -179,4 +178,4 @@ private:
 } // namespace core
 } // namespace aurorastream
 
-#endif  // AURORASTREAM_CORE_MEDIAPLAYER_H
+#endif // AURORASTREAM_CORE_MEDIAPLAYER_H

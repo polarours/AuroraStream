@@ -81,8 +81,8 @@
 
 /** @} */ // end of build_config group
 
-#include "core/MediaPlayer.h" // 媒体播放器核心接口
-#include "utils/Logger.h"     // 日志系统
+#include "core/MediaPlayer.h"    // 媒体播放器核心接口
+#include "utils/Logger.h"        // 日志系统
 #include "utils/ConfigManager.h" // 配置管理
 
 /**

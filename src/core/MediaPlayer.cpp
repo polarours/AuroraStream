@@ -9,15 +9,21 @@
  * @Date   : 2025/08/22
  ********************************************************************************/
 
-#include "AuroraStream/core/MediaPlayer.h"
-
-#inlude <QTimer>
+#include <QTimer>
 #include <QFileInfo>
 #include <QDir>
 #include <QDebug>
 #include <QDateTime>
 
-//  FFmpeg 相关头文件
+#include <memory>
+#include <thread>
+#include <chrono>
+#include <atomic>
+#include <functional>
+
+#include "AuroraStream/core/MediaPlayer.h"
+
+// ---  FFmpeg 相关头文件 ---
 extern "C" {
   #include <libavformat/avformat.h>
   #include <libavcodec/avcodec.h>
@@ -30,32 +36,26 @@ extern "C" {
   #include <libavutil/time.h>
 }
 
-#include <memory>
-#include <thread>
-#include <chrono>
-#include <atomic>
-#include <functional>
-
 namespace aurorastream{
 namespace core{
 
 /**
  * @brief 构造函数，初始化播放器状态
- *  @param parent QObject指针，用于Qt对象树管理
- *  @note 该构造函数会初始化 FFmpeg 网络模块
+ * @param parent QObject指针，用于Qt对象树管理
+ * @note 该构造函数会初始化 FFmpeg 网络模块
  */
 MediaPlayer::MediaPlayer(QObject *parent)
-    : QObject(parent) // 调用基类 QObject 的构造函数
+    : QObject(parent)               // 调用基类 QObject 的构造函数
     // --- 初始化状态和信息 ---
-    , m_state(State::Stopped) // 初始状态为停止
-    , m_duration(0)          // 初始媒体时长为0毫秒
-    , m_position(0)          // 初始播放位置为0毫秒
+    , m_state(State::Stopped)       // 初始状态为停止
+    , m_duration(0)                 // 初始媒体时长为0毫秒
+    , m_position(0)                 // 初始播放位置为0毫秒
     // --- 初始化 FFmpeg 相关指针 ---
     , m_formatContext(nullptr)      // FFmpeg 格式上下文指针初始化为空
     , m_videoCodecContext(nullptr)  // FFmpeg 视频解码器上下文指针初始化为空
     , m_audioCodecContext(nullptr)  // FFmpeg 音频解码器上下文指针初始化为空
-    , m_videoStreamIndex(-1)       // -1 表示未找到有效的视频流
-    , m_audioStreamIndex(-1)       // -1 表示未找到有效的音频流
+    , m_videoStreamIndex(-1)        // -1 表示未找到有效的视频流
+    , m_audioStreamIndex(-1)        // -1 表示未找到有效的音频流
 
 {
 	avformat_network_init(); //  初始化 FFmpeg 网络模块
@@ -92,7 +92,7 @@ MediaPlayer::~MediaPlayer()
 
 /**
  * @brief 开始播放当前加载的媒体
- *  @note 如果当前没有加载媒体，则不会执行任何操作
+ * @note 如果当前没有加载媒体，则不会执行任何操作
  */
 void MediaPlayer::play()
 {
@@ -154,17 +154,27 @@ void MediaPlayer::stop()
         m_position = 0;
         qDebug() << "MediaPlayer: Stopped.";
         emit stateChanged(m_state);
+
 		if (oldPosition != m_position) {
 			emit positionChanged(m_position);
 		}
+
         qDebug() << "MediaPlayer::stop(): Already stopped.";
 	}
 }
 
+/**
+ * @brief 加载媒体文件
+ * @param filename 媒体文件路径
+ * @return 成功加载返回 true，否则返回 false
+ */
 bool MediaPlayer::openFile(const QString &filename)
 {
 	qDebug() <<  "MediaPlayer::openFile() called with filename:" << filename;
+
 	QFileInfo fileInfo(filename);
+
+	// 检查文件是否存在
 	if (!fileInfo.exists() && !fileInfo.isFile()) {
 		QString errorMessage = QString("MediaPlayer::openFile() failed. File does not exist or is not a regular file: %1").arg(filename);
 		qWarning() << errorMessage;
@@ -172,7 +182,9 @@ bool MediaPlayer::openFile(const QString &filename)
 		return false;
 	}
 
-	stop();
+	stop(); // 停止当前播放
+
+	// 释放之前加载的媒体资源
 	if (m_formatContext) {
 		avformat_close_input(&m_formatContext);
         avformat_free_context(m_formatContext);
@@ -187,6 +199,8 @@ bool MediaPlayer::openFile(const QString &filename)
 
 	AVFormatContext* formatContext = nullptr;
 	int ret = avformat_open_input(&formatContext, filename.toStdString().c_str(), nullptr, nullptr);
+
+	// 检查文件是否成功打开
 	if (ret < 0) {
 		QString errorMessage = QString("MediaPlayer::openFile() failed. Could not open file: %1").arg(filename);
 		char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
@@ -198,6 +212,8 @@ bool MediaPlayer::openFile(const QString &filename)
 	}
 
     ret = avformat_find_stream_info(formatContext, nullptr);
+
+	// 如果未找到流信息，则返回 false
 	if (ret < 0) {
 		QString errorMessage = QString("MediaPlayer::openFile() failed. Could not find stream information in file: %1").arg(filename);
 	   	char  errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
@@ -209,12 +225,13 @@ bool MediaPlayer::openFile(const QString &filename)
 		return false;
 	}
 
-	int videoStreamIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);
-	int audioStreamIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);
+	int videoStreamIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);// 查找视频流
+	int audioStreamIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);// 查找音频流
 
-	AVCodecContext* videoCodecContext = nullptr;
-	AVCodecContext* audioCodecContext = nullptr;
+	AVCodecContext* videoCodecContext = nullptr;// 视频解码器上下文
+	AVCodecContext* audioCodecContext = nullptr;// 音频解码器上下文
 
+	// 查找并初始化视频解码器
 	if (videoStreamIndex >= 0) {
 		AVStream* videoStream = formatContext->streams[videoStreamIndex];
 		const AVCodec* videoCodec = acvodec_find_decoder(videoStream->codecpar->codec_id);
@@ -239,7 +256,8 @@ bool MediaPlayer::openFile(const QString &filename)
 		}
 	}
 
-   if (audioStreamIndex >= 0) {
+    // 查找并初始化音频解码器
+    if (audioStreamIndex >= 0) {
        AVStream* audioStream = formatContext->streams[audioStreamIndex];
        const AVCodec* audioCodec = avcodec_find_decoder(audioStream->codecpar->codec_id);
        if (audioCodec) {
@@ -260,9 +278,10 @@ bool MediaPlayer::openFile(const QString &filename)
            qWarning() << "MediaPlayer::openFile(): Could not find audio decoder.";
            audioStreamIndex = -1;
        }
-}
+	}
 
-   if (videoStreamIndex < 0 && audioStreamIndex < 0) {
+	// 检查是否找到有效的流
+    if (videoStreamIndex < 0 && audioStreamIndex < 0) {
        QString errorMessage = QString("MediaPlayer::openFile() failed. No valid video or audio streams found in file: %1").arg(filename);
        qWarning() << errorMessage;
        avformat_free_context(&videoCodecContext);
@@ -270,7 +289,7 @@ bool MediaPlayer::openFile(const QString &filename)
        avformat_close_input(&formatContext);
        emit error(errorMessage);
        return false;
-   }
+    }
 
 	m_formatContext = formatContext;
     m_videoCodecContext = videoCodecContext;

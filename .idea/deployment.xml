@@ -5,15 +5,11 @@
       <paths name="Remote Host (1317d0b5-e442-4f6b-84f9-a0a52ca12b2d)">
         <serverdata>
           <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
+            <mapping deploy="/home/polarours/Projects/Personal/AuroraStream" local="$PROJECT_DIR$" />
           </mappings>
-        </serverdata>
-      </paths>
-      <paths name="WSL">
-        <serverdata>
-          <mappings>
-            <mapping local="$PROJECT_DIR$" web="/" />
-          </mappings>
+          <excludedPaths>
+            <excludedPath local="true" path="$PROJECT_DIR$/cmake-build-debug" />
+          </excludedPaths>
         </serverdata>
       </paths>
     </serverData>
