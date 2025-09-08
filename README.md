@@ -16,8 +16,3 @@ Select your preferred language:
 
 - [English (en)](README.en.md)
 - [简体中文 (zh-CN)](README.zh-CN.md)
-
-## 多语言 (Multilingual)
-
-该项目提供多种语言的文档以方便不同地区的用户。
-This project provides documentation in multiple languages to accommodate users from different regions.

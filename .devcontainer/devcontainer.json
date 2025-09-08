@@ -1,0 +1,25 @@
+{
+  // devcontainer.json - AuroraStream 开发容器配置文件
+  "name": "AuroraStream Dev Container", // 容器环境的名称
+  "build": {
+    // 指定如何构建开发容器镜像
+    "dockerfile": "../Dockerfile", // 相对于 .devcontainer 目录的 Dockerfile 路径
+    // 如果需要传递构建参数给 Dockerfile，可以在这里添加
+    // "args": {
+    //     "VARIANT": "jammy"
+    // }
+  },
+  // 自定义容器设置
+  "customizations": {
+    // VS Code 相关配置 (CLion 也会参考部分设置)
+    "vscode": {
+      // 在容器内安装的 VS Code 扩展 (可选)
+      "extensions": [
+        // "ms-vscode.cpptools", // C/C++ 扩展
+        // "ms-vscode.cmake-tools" // CMake 扩展
+      ]
+    }
+  },
+  // 设置工作目录
+  "workspaceFolder": "/workspace/AuroraStream", // 容器内的工作目录
+}

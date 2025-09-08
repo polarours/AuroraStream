@@ -1,3 +1,13 @@
+/********************************************************************************
+ * @file   : VideoWidget.cpp
+ * @brief  :
+ *
+ *
+ *
+ * @Author : polarours
+ * @Date   : 2025/08/25
+ ********************************************************************************/
+
 #include "aurorastream/modules/ui/VideoWidget.h"
 
 namespace aurorastream {
