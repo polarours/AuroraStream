@@ -1,8 +1,9 @@
 /********************************************************************************
  * @file   : MainWindow.cpp
- * @brief  :
+ * @brief  : 实现主窗口
  *
- *
+ * 本文件实现了主窗口的界面和逻辑
+ * 包括视频渲染、控制面板等
  *
  * @Author : polarours
  * @Date   : 2025/08/25
@@ -13,6 +14,7 @@ include "aurorastream/modules/ui/MainWindow.h"
 namespace aurorastream {
 namespace modules {
 namespace ui {
+
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent) {
     m_videoWidget = new VideoWidget(this);

@@ -9,8 +9,8 @@
  * @date   : 2025/8/23
  ********************************************************************************/
 
-#ifndef AURORASTREAM_MODULES_MEDIA_VIDEO_SDLVIDEORENDERER_H
-#define AURORASTREAM_MODULES_MEDIA_VIDEO_SDLVIDEORENDERER_H
+#ifndef AURORASTREAM_MODULES_MEDIA_RENDERER_SDLVIDEORENDERER_H
+#define AURORASTREAM_MODULES_MEDIA_RENDERER_SDLVIDEORENDERER_H
 
 #include <cstdint>
 #include "aurorastream/AuroraStream.h"
@@ -58,10 +58,10 @@ private:
 
 };
 
-}
-}
-}
-}
+} // namespace renderer
+} // namespace media
+} // namespace modules
+} // namespace aurorastream
 
 
-#endif // AURORASTREAM_MODULES_MEDIA_VIDEO_SDLVIDEORENDERER_H
+#endif // AURORASTREAM_MODULES_MEDIA_RENDERER_SDLVIDEORENDERER_H

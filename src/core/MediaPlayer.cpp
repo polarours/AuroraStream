@@ -58,7 +58,7 @@ MediaPlayer::MediaPlayer(QObject *parent)
     , m_audioStreamIndex(-1)        // -1 表示未找到有效的音频流
 
 {
-	avformat_network_init(); //  初始化 FFmpeg 网络模块
+	avformat_network_init(); // 初始化 FFmpeg 网络模块
 
     qDebug() << "MediaPlayer created.";
 }
@@ -72,22 +72,22 @@ MediaPlayer::~MediaPlayer()
 	stop(); //  确保停止播放
 
     // 释放解码器上下文
-	if  (m_videoCodecContext) {
-           avcodec_free_context(&m_videoCodecContext);
+    if (m_videoCodecContext) {
+        avcodec_free_context(&m_videoCodecContext);
 	}
 
     // 释放解码器上下文
 	if (m_audioCodecContext) {
-	       avcodec_free_context(&m_audioCodecContext);
+	    avcodec_free_context(&m_audioCodecContext);
 	}
 
 	// 释放格式上下文
 	if (m_formatContext) {
-	       avformat_free_context(m_formatContext);
+	    avformat_free_context(m_formatContext);
 	}
 
-	qDebug() << "MediaPlayer destroyed."; // 生成销毁日志
-
+    // 生成销毁日志
+	qDebug() << "MediaPlayer destroyed.";
 }
 
 /**
@@ -119,8 +119,7 @@ void MediaPlayer::play()
 /**
  * @brief 暂停当前播放的媒体
  * 根据当前状态决定是否暂停播放
- * - 如果当前状态为播放状态，则切换为暂停状态
- * - 如果当前状态不是播放状态，则不会执行任何操作
+ * 如果当前状态为播放状态，则切换为暂停状态，反之则不执行任何操作
  */
 void  MediaPlayer::pause()
 {
@@ -140,8 +139,7 @@ void  MediaPlayer::pause()
 /**
  * @brief 停止当前播放的媒体
  * 将播放器状态设置为停止，并重置播放位置
- * 如果当前状态不是停止状态，则切换为停止状态
- * 如果当前状态已经是停止状态，则不会执行任何操作
+ * 如果当前状态不是停止状态，则切换为停止状态，反之则不执行任何操作
  */
 void MediaPlayer::stop()
 {
@@ -159,6 +157,7 @@ void MediaPlayer::stop()
 			emit positionChanged(m_position);
 		}
 
+        // 输出已经是停止状态的情况
         qDebug() << "MediaPlayer::stop(): Already stopped.";
 	}
 }
@@ -381,5 +380,5 @@ qint64 MediaPlayer::position() const {
     return  m_position;
 }
 
-}
-}
+} // namespace core
+} // namespace aurorastream

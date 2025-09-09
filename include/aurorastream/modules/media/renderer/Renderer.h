@@ -1,6 +1,6 @@
  /********************************************************************************
- * @file Renderer.h
- * @brief 声明 AuroraStream 媒体渲染器抽象基类。
+ * @file   : Renderer.h
+ * @brief  : 声明 AuroraStream 媒体渲染器抽象基类。
  *
  * 此文件定义了 aurorastream::modules::media::renderer::Renderer 类，
  * 它是所有具体渲染器实现（例如，基于 SDL2 的渲染器）的抽象基类。
@@ -10,8 +10,8 @@
  * @Date   : 2025/08/22
  ********************************************************************************/
 
-#ifdef AURORA_STREAM_MODULES_MEDIA_RENDERER_RENDERER_H
-#define AURORA_STREAM_MODULES_MEDIA_RENDERER_RENDERER_H
+#ifndef AURORASTREAM_MODULES_MEDIA_RENDERER_RENDERER_H
+#define AURORASTREAM_MODULES_MEDIA_RENDERER_RENDERER_H
 
 #include <cstdint>
 
@@ -20,6 +20,7 @@
 namespace aurorastream {
 namespace modules {
 namespace media {
+
 namespace decoder {
     struct VideoFrame;
     struct AudioFrame;
@@ -27,8 +28,16 @@ namespace decoder {
 
 namespace renderer {
 
-class AURORASTREAM_API Renderer {
+class AURORASTREAM_API Renderer : public QObject
+{
+    Q_OBJECT
+
 public:
+    enum class RendererType {
+        VideoRenderer,
+        AudioRenderer
+    };
+
     Renderer();
     virtual ~Renderer();
 
@@ -51,9 +60,9 @@ protected:
     void* m_windowHandle;
 };
 
-}
-}
-}
-}
+} // namespace renderer
+} // namespace media
+} // namespace modules
+} // namespace aurorastream
 
-#endif
+#endif // AURORASTREAM_MODULES_MEDIA_RENDERER_RENDERER_H

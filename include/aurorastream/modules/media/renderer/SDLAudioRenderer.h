@@ -1,6 +1,6 @@
 /********************************************************************************
  * @file   : SDLAudioRenderer.h
- * @brief 声明基于 SDL2 的具体音频渲染器类。
+ * @brief  : 声明基于 SDL2 的具体音频渲染器类。
  *
  * 此文件定义了 aurorastream::modules::media::renderer::SDLAudioRenderer 类，
  * 它是 AudioRenderer 抽象基类的具体实现，使用 SDL2 库进行音频播放。
@@ -24,6 +24,7 @@ struct SDL_AudioSpec;
 namespace aurorastream {
 namespace modules {
 namespace media {
+
 namespace decoer {
     class AudioFrame;
 }
@@ -94,8 +95,9 @@ protected:
 
 };
 
-}
-}
-}
+} // namespace renderer
+} // namespace media
+} // namespace modules
+} // namespace aurorastream
 
 #endif // AURORASTREAM_MODULES_MEDIA_RENDERER_SDLAUDIORENDERER_H

@@ -29,7 +29,6 @@ struct SwrContext;
 
 namespace aurorastream {
 namespace core {
-
 /**
  * @class MediaPlayer
  * @brief AuroraStream 框架的核心媒体播放器类。
@@ -162,12 +161,13 @@ signals:
     void error(const QString& message);
 
 private:
-
+	// --- 私有成员变量 ---
     State m_state;             ///< 当前播放状态
     QString m_currentMedia;    ///< 当前媒体文件路径
     qint64 m_duration;         ///< 媒体总时长 (毫秒)
     qint64 m_position;         ///< 当前播放位置 (毫秒)
 
+	// --- FFmpeg 相关成员 (使用 void* 隐藏具体类型) ---
     void* m_formatContext;     ///< FFmpeg 格式上下文指针 (实际类型是 AVFormatContext*)
     void* m_videoCodecContext; ///< FFmpeg 视频解码器上下文指针
     void* m_audioCodecContext; ///< FFmpeg 音频解码器上下文指针

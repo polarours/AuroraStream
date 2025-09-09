@@ -10,14 +10,13 @@
  * @Date   : 2025/08/21
  ********************************************************************************/
 
-// include/aurorastream/modules/ui/MainWindow.h
 #ifndef AURORASTREAM_MODULES_UI_MAINWINDOW_H
 #define AURORASTREAM_MODULES_UI_MAINWINDOW_H
 
-#include <QMainWindow> // 继承自 QMainWindow
-#include <memory> // 智能指针
+#include <QMainWindow>
+#include <memory>
 
-// 前置声明
+// --- 前置声明 ---
 QT_BEGIN_NAMESPACE
 class QVBoxLayout;
 QT_END_NAMESPACE

@@ -1,6 +1,6 @@
 /********************************************************************************
- * @file VideoRenderer.h
- * @brief 声明 AuroraStream 视频渲染器抽象基类。
+ * @file   : VideoRenderer.h
+ * @brief  : 声明 AuroraStream 视频渲染器抽象基类。
  *
  * 此文件定义了 aurorastream::modules::media::renderer::VideoRenderer 类，
  * 它是所有具体视频渲染器实现（例如，基于 SDL2 的视频渲染器）的抽象基类。
@@ -10,8 +10,8 @@
  * @date   : 2025/8/23
  ********************************************************************************/
 
-#ifndef AURORASTREAM_MODULES_MEDIA_VIDEO_VIDEORENDERER_H
-#define AURORASTREAM_MODULES_MEDIA_VIDEO_VIDEORENDERER_H
+#ifndef AURORASTREAM_MODULES_MEDIA_RENDERER_VIDEORENDERER_H
+#define AURORASTREAM_MODULES_MEDIA_RENDERER_VIDEORENDERER_H
 
 #include <cstdint>
 #include "aurorastream/AuroraStream.h"
@@ -50,10 +50,10 @@ protected:
     void* m_windowHandle;
 };
 
-}
-}
-}
-}
+} // namespace renderer
+} // namespace media
+} // namespace modules
+} // namespace aurorastream
 
 
-#endif // AURORASTREAM_MODULES_MEDIA_VIDEO_VIDEORENDERER_H
+#endif // AURORASTREAM_MODULES_MEDIA_RENDERER_VIDEORENDERER_H

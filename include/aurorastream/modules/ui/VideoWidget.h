@@ -9,12 +9,11 @@
  * @Date   : 2025/8/22
  ********************************************************************************/
 
-// include/aurorastream/modules/ui/VideoWidget.h
-#ifndef VIDEOWIDGET_H
-#define VIDEOWIDGET_H
+#ifndef AURORASTREAM_MODULES_UI_VIDEOWIDGET_H
+#define AURORASTREAM_MODULES_UI_VIDEOWIDGET_H
 
-#include <QWidget> // Qt 基础窗口部件类
-#include <memory> // 智能指针支持
+#include <QWidget>
+#include <memory>
 
 namespace aurorastream {
 namespace core {
@@ -84,4 +83,4 @@ private:
 } // namespace modules
 } // namespace aurorastream
 
-#endif // VIDEOWIDGET_H
+#endif // AURORASTREAM_MODULES_UI_VIDEOWIDGET_H
