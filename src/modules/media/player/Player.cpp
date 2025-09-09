@@ -406,23 +406,40 @@ void Player::onDurationChanged(qint64 duration) {
     updateDuration(duration);
 }
 
+/**
+ * @brief 响应播放位置变化
+ * @param position 播放位置
+ */
 void Player::onPositionChanged(qint64 position) {
     updatePosition(position);
 }
 
+/**
+ * @brief 响应错误
+ * @param errorMessage 错误信息
+ */
 void Player::onErrorOccurred(const QString &errorMessage) {
     setState(State::Error);
     emit errorOccurred(errorMessage);
 }
 
-void Player::onDecoderMediaOpened(const QString &uri) {
+/**
+ * @brief 响应媒体打开
+ * @param uri 媒体文件路径
+ * @note 发出 mediaOpened 信号
+ */
+void Player::onMediaOpened(const QString &uri) {
     m_currentUri = uri;
     emit mediaOpened(uri);
 }
 
-void Player::onDecoderFinished() {
+/**
+ * @brief 响应媒体播放完成
+ * @note 发出 mediaFinished 信号
+ */
+void Player::onMediaFinished() {
     setState(State::Stopped);
-    emit finished();
+    emit mediaFinished();
 }
 
 } // namespace player

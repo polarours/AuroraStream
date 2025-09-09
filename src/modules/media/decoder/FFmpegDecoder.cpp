@@ -1,18 +1,20 @@
 /********************************************************************************
  * @file   : FFmpegDecoder.cpp
- * @brief  :
+ * @brief  : AuroraStream FFmpeg 解码器模块的实现
  *
- *
+ * 本文件实现了 FFmpegDecoder 类，它提供了 FFmpeg 解码器的基本功能
+ * 包括初始化、解码控制、状态管理等
  *
  * @Author : polarours
  * @Date   : 2025/08/25
  ********************************************************************************/
 
-#include "aurorastream/modules/media/decoder/FFmpegDecoder.h"
-
 #include <QDebug>
 #include <QThread>
 
+#include "aurorastream/modules/media/decoder/FFmpegDecoder.h"
+
+// ---  FFmpeg 头文件 ---
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
@@ -25,22 +27,47 @@ namespace modules {
 namespace media {
 namespace decoder {
 
-FFmpegDecoder::FFmpegDecoder(QObject *parent) : Decoder(parent),
-    m_formatContext(nullptr),
-    m_videoCodecContext(nullptr),
-    m_audioCodecContext(nullptr),
-    m_videoFrame(nullptr),
-    m_audioFrame(nullptr),
-    m_swsContext(nullptr),
-    m_swrContext(nullptr),
-    m_videoStreamIndex(-1),
-    m_audioStreamIndex(-1),
-    m_internalState(InternalState::Stopped) {}
+/**
+ * @brief FFmpegDecoder 构造函数
+ * @param parent QObject父对象指针
+ * @param parent Decoder父对象指针
+ * @note 初始化所有FFmpeg相关资源指针为nullptr
+ */
+FFmpegDecoder::FFmpegDecoder(QObject *parent)
+    : QObject(parent),                      ///< Qt对象树管理
+	: Decoder(parent),                      ///< Decoder对象树管理
 
+    m_formatContext(nullptr),               ///< FFmpeg 格式上下文
+    m_videoCodecContext(nullptr),           ///< FFmpeg 视频解码器上下文
+    m_audioCodecContext(nullptr),           ///< FFmpeg 音频解码器上下文
+
+	m_videoFrame(nullptr),                  ///< FFmpeg 视频帧
+    m_audioFrame(nullptr),                  ///< FFmpeg 音频帧
+
+	m_swsContext(nullptr),                  ///< FFmpeg 视频转换上下文
+    m_swrContext(nullptr),                  ///< FFmpeg 音频转换上下文
+
+	m_videoStreamIndex(-1),					///< 初始状态为未找到有效流
+    m_audioStreamIndex(-1),	                ///< 初始状态为未找到有效流
+
+	m_internalState(InternalState::Stopped) ///< 初始状态为停止
+{
+	qDebug() << "FFmpegDecoder created";
+}
+
+/**
+ * @brief 析构函数，释放所有FFmpeg资源
+ * @note 调用 deinitFFmpeg() 释放所有资源
+ */
 FFmpegDecoder::~FFmpegDecoder() {
     deinitFFmpeg();
 }
 
+/**
+ * @brief 打开媒体文件
+ * @param url 媒体文件路径或URL
+ * @return 成功返回true，失败返回false
+ */
 bool FFmpegDecoder::open(const QString &url) {
     if (m_internalState != InternalState::Stopped) {
         qWarning() << "Decoder is not in stopped state";
@@ -59,6 +86,10 @@ bool FFmpegDecoder::open(const QString &url) {
     return true;
 }
 
+/**
+ * @brief 关闭媒体文件
+ * @note 调用 deinitFFmpeg() 释放所有资源
+ */
 void FFmpegDecoder::close() {
     if (m_internalState == InternalState::Stopped) {
         return;
@@ -66,10 +97,16 @@ void FFmpegDecoder::close() {
 
     setInternalState(InternalState::Closing);
     deinitFFmpeg();
+
     setInternalState(InternalState::Stopped);
     emit finished();
 }
 
+/**
+ * @brief 开始解码循环
+ * @note 启动一个单独的线程进行解码
+ * @note 调用 decodeLoop() 进行解码
+ */
 void FFmpegDecoder::start() {
     if (m_internalState != InternalState::Opened && m_internalState != InternalState::Paused) {
         qWarning() << "Decoder is not in opened or paused state";
@@ -77,12 +114,14 @@ void FFmpegDecoder::start() {
     }
 
     setInternalState(InternalState::Starting);
-    QThread *thread = new QThread();
+
+    QThread* thread = new QThread();
     moveToThread(thread);
     connect(thread, &QThread::started, this, &FFmpegDecoder::decodeLoop);
     connect(thread, &QThread::finished, thread, &QThread::deleteLater);
     thread->start();
-    setInternalState(InternalState::Playing);
+
+	setInternalState(InternalState::Playing);
 }
 
 bool FFmpegDecoder::pause() {

@@ -1,8 +1,8 @@
 /********************************************************************************
  * @file   : main.cpp
- * @brief  :
+ * @brief  : AuroraStream 主程序入口
  *
- *
+ * 本文件包含 AuroraStream 的主程序入口函数 main()
  *
  * @Author : polarours
  * @Date   : 2025/08/26

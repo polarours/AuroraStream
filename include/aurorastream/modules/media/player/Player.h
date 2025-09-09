@@ -274,7 +274,7 @@ private slots:
     /**
      * @brief 响应播放完成信号
      */
-	void onFinished();
+	void onMediaFinished();
 
 private:
 	// --- 成员变量 ---

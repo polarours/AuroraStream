@@ -1,32 +1,29 @@
 # UI Module Configuration
 
-set(UI_SOURCES
-    MainWindow.cpp
-    VideoWidget.cpp
-    ControlPanel.cpp
+set(UI_MODULE_HEADERS
+    include/aurorastream/modules/ui/MainWindow.h
+    include/aurorastream/modules/ui/VideoWidget.h
+    include/aurorastream/modules/ui/ControlPanel.h
 )
 
-set(UI_HEADERS
-    MainWindow.h
-    VideoWidget.h
-    ControlPanel.h
+set(UI_MODULE_SOURCES
+    src/modules/ui/MainWindow.cpp
+    src/modules/ui/VideoWidget.cpp
+    src/modules/ui/ControlPanel.cpp
 )
 
-# Add library or module target
+# 添加 UIModule 模块库
 add_library(UIModule STATIC
-    ${UI_SOURCES}
-    ${UI_HEADERS}
+    ${UI_MODULE_HEADERS}
+    ${UI_MODULE_SOURCES}
 )
 
-# Link dependencies
-target_link_libraries(UIModule
-    PRIVATE
-        Qt6::Widgets
-        Qt6::Multimedia
-)
-
-# Include directories
+# 设置 UIModule 模块库的头文件路径
 target_include_directories(UIModule
-    PUBLIC
-        ${CMAKE_CURRENT_SOURCE_DIR}
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+)
+
+#
+target_link_libraries(UIModule
+
 )
