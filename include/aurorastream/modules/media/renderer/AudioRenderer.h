@@ -128,13 +128,12 @@ signals:
     void initialized();
 
 protected:
-    bool m_initialized{false};
-    int m_sampleRate{0};
-    int m_channels{0};
-    int m_format{0};
-    float m_volume{1.0f};
-    bool m_mute{false};
-
+    int m_sampleRate{0};       ///< 采样率
+    int m_channels{0};         ///< 声道数
+    int m_format{0};           ///< 音频格式
+    float m_volume{1.0f};      ///< 音量
+    bool m_mute{false};        ///< 是否静音
+    bool m_initialized{false}; ///< 是否已初始化
 };
 
 } // namespace renderer

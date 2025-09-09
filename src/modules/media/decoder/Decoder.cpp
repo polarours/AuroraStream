@@ -1,12 +1,12 @@
 /********************************************************************************
  * @file   : Decoder.cpp
- * @brief  : AuroraStream 媒体解码器模块的实现
+ * @brief  : 实现 AuroraStream 媒体解码器模块。
  *
- * 本文件实现了 Decoder 类，它提供了媒体解码器的基本功能
- * 包括初始化、解码控制、状态管理等
+ * 本文件实现了 aurorastream::modules::media::decoder::Decoder 类，
+ * 它提供了媒体解码器的基本功能，包括初始化、解码控制、状态管理等。
  *
- * @Author : polarours
- * @Date   : 2025/08/25
+ * @author : polarours
+ * @date   : 2025/08/25
  ********************************************************************************/
 
 #include <QDebug>
@@ -17,17 +17,16 @@ namespace aurorastream {
 namespace modules {
 namespace media {
 namespace decoder {
-
 /**
- * @brief Decoder 类的构造函数
- * @param parent 父对象
- * @note 初始化解码器状态
+ * @brief Decoder 类的构造函数。
+ * @param parent 父对象。
+ * @note 初始化解码器状态。
  */
-Decoder::Decoder(QObject *parent)
+Decoder::Decoder(QObject* parent)
 	: QObject(parent),
-    m_isOpen(false),
-    m_duration(0),
-    m_position(0)
+    m_isOpen(false), ///< 初始状态为未打开
+    m_duration(0),   ///< 初始时长为0
+    m_position(0)    ///< 初始位置为0
 {
 	qDebug() << "Decoder initialized";
 }
@@ -46,6 +45,7 @@ Decoder::~Decoder() {
  * @return 是否成功打开
  */
 bool Decoder::open(const QString &uri) {
+	// 检查是否已经打开。
     if (m_isOpen) {
         qWarning() << "Decoder is already open";
         return false;
@@ -59,10 +59,11 @@ bool Decoder::open(const QString &uri) {
 }
 
 /**
- * @brief 关闭媒体文件
- * @note 关闭媒体文件后，解码器将进入 Stopped 状态
+ * @brief 关闭媒体文件。
+ * @note 关闭媒体文件后，解码器将进入 Stopped 状态。
  */
 void Decoder::close() {
+	// 检查是否已经打开。
     if (!m_isOpen) {
         qWarning() << "Decoder is not open";
         return;
@@ -81,6 +82,7 @@ void Decoder::close() {
  * @note 开始解码后，解码器将进入 Playing 状态
  */
 void Decoder::start() {
+	// 检查是否已经打开。
     if (!m_isOpen) {
         qWarning() << "Decoder is not open";
         return;
@@ -94,6 +96,7 @@ void Decoder::start() {
  * @note 暂停解码后，解码器将进入 Paused 状态
  */
 void Decoder::pause() {
+	// 检查是否已经打开。
     if (!m_isOpen) {
         qWarning() << "Decoder is not open";
         return;
@@ -107,6 +110,7 @@ void Decoder::pause() {
  * @note 停止解码后，解码器将进入 Stopped 状态
  */
 void Decoder::stop() {
+	// 检查是否已经打开。
     if (!m_isOpen) {
         qWarning() << "Decoder is not open";
         return;
@@ -121,6 +125,7 @@ void Decoder::stop() {
  * @param position 定位位置
  */
 void Decoder::seek(qint64 position) {
+	// 检查是否已经打开。
     if (!m_isOpen) {
         qWarning() << "Decoder is not open";
         return;
@@ -132,19 +137,19 @@ void Decoder::seek(qint64 position) {
 }
 
 /**
- * @brief 获取当前媒体是否已经打开
- * @return 当前媒体是否已经打开
+ * @brief 获取当前媒体是否已经打开。
+ * @return 当前媒体是否已经打开。
  */
 bool Decoder::isOpen() const {
     return m_isOpen;
 }
 
 /**
- * @brief 获取当前媒体是否正在播放
- * @return 当前媒体是否正在播放
+ * @brief 获取当前媒体是否正在播放。
+ * @return 当前媒体是否正在播放。
  */
 bool Decoder::isPlaying() const {
-    return m_isOpen && m_position > 0;
+    //
 }
 
 /**
@@ -152,7 +157,7 @@ bool Decoder::isPlaying() const {
  * @return 当前媒体是否已经暂停
  */
 bool Decoder::isPaused() const {
-    return m_isOpen && m_position > 0;
+    //
 }
 
 /**
@@ -160,7 +165,7 @@ bool Decoder::isPaused() const {
  * @return 当前媒体是否已经停止
  */
 bool Decoder::isStopped() const {
-    return !m_isOpen;
+    //
 }
 
 /**

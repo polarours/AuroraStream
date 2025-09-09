@@ -22,17 +22,13 @@
 namespace aurorastream {
 namespace modules {
 namespace media {
-
 namespace decoder {
-    class Decoder;
+class Decoder;
 }
-
 namespace render {
-    class Renderer;
+class Renderer;
 }
-
 namespace player {
-
 /**
  * @brief 媒体播放器核心类
  * 本类负责协调解码器、渲染器和播放状态，提供完整的媒体播放功能。
@@ -40,9 +36,7 @@ namespace player {
 class AURORASTREAM_API Player : public QObject
 {
     Q_OBJECT
-
 public:
-
     // --- 状态枚举 ---
     enum class State {
         Stopped = 0,    ///< 完全停止，无媒体加载
@@ -234,7 +228,6 @@ signals:
     void audioFrameReady(const aurorastream::modules::media::decoder::AudioFrame& frame);
 
 private slots:
-
     /**
      * @brief 响应解码器音频帧就绪信号
      * @param frame 音频帧数据
@@ -279,16 +272,13 @@ private slots:
 private:
 	// --- 成员变量 ---
     State m_state;	 	                 										///< 当前状态
-
     qint64 m_duration;			                                                ///< 总时长 (毫秒)
     qint64 m_position;	    													///< 当前位置 (毫秒)
 	QString m_currentUri;                                                       ///< 当前媒体URI
-
 	std::unique_ptr<aurorastream::modules::media::decoder::Decoder> m_decoder;  ///< 解码器
     std::unique_ptr<aurorastream::modules::media::render::Renderer> m_renderer; ///< 渲染器
 
 	// --- 私有方法 ---
-
     /**
      * @brief 更新播放状态
      * @param newState 新的播放状态

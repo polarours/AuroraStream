@@ -5,8 +5,8 @@
  * VideoWidget 是一个用于显示解码后视频帧的自定义 QWidget。
  * 它通常与渲染器 (Renderer) 模块协同工作。
  *
- * @Author : polarours
- * @Date   : 2025/8/22
+ * @author : polarours
+ * @date   : 2025/8/22
  ********************************************************************************/
 
 #ifndef AURORASTREAM_MODULES_UI_VIDEOWIDGET_H
@@ -17,13 +17,12 @@
 
 namespace aurorastream {
 namespace core {
-    class MediaPlayer;
+class MediaPlayer;
 }
-
 namespace modules {
 namespace media {
 namespace renderer {
-    class VideoRenderer;
+class VideoRenderer;
 }
 }
 namespace ui {
@@ -36,7 +35,6 @@ namespace ui {
 */
 class AURORASTREAM_API VideoWidget : public QWidget {
     Q_OBJECT
-
 public:
     /**
      *@brief VideoWidget 构造函数。

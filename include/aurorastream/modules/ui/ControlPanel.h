@@ -5,8 +5,8 @@
  * 此文件定义了 aurorastream::modules::ui::ControlPanel 类，它是 AuroraStream 框架用于
  * 媒体播放的 UI 控件，提供播放/暂停、停止、进度条、音量控制等交互功能。
  *
- * @Author : polarours
- * @Date   : 2025/08/21
+ * @author : polarours
+ * @date   : 2025/08/21
  ********************************************************************************/
 
 #ifndef AURORASTREAM_MODULES_UI_CONTROLPANEL_H
@@ -23,10 +23,9 @@ QT_END_NAMESPACE
 
 namespace aurorastream {
 namespace core {
-    class MediaPlayer;
-    enum class MediaPlayerState;
+class MediaPlayer;
+enum class MediaPlayerState;
 }
-
 namespace modules {
 namespace ui {
 /**
@@ -36,7 +35,6 @@ namespace ui {
  */
 class AURORASTREAM_API ControlPanel : public QWidget {
     Q_OBJECT
-
 public:
     /**
      * @brief ControlPanel 构造函数。

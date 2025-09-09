@@ -1,10 +1,9 @@
 /********************************************************************************
  * @file   : MediaPlayer.h
- * @brief  : 媒体播放器类定义
+ * @brief  : 定义了 aurorastream::core::MediaPlayer 类
  *
- * 此文件定义了 aurorastream::core::MediaPlayer 类，它是 AuroraStream 框架用于
- * 控制媒体播放流程的主要接口。它提供了播放控制（播放、暂停、停止、Seek）、
- * 状态查询（播放状态、时长、位置）以及文件打开等核心功能。
+ * 该文件定义了 aurorastream::core::MediaPlayer 类，该类是 AuroraStream 框架的核心媒体播放器主要接口
+ * 功能包括：播放、暂停、停止、快进、快退、音量控制、播放进度控制等。
  *
  * @author : polarours
  * @date   : 2025/08/21
@@ -13,9 +12,9 @@
 #ifndef AURORASTREAM_CORE_MEDIAPLAYER_H
 #define AURORASTREAM_CORE_MEDIAPLAYER_H
 
+#include <QUrl>
 #include <QObject>
 #include <QString>
-#include <QUrl>
 
 #include "aurorastream/AuroraStream.h"
 
@@ -26,7 +25,6 @@ struct AVFrame;
 struct SwsContext;
 struct SwrContext;
 
-
 namespace aurorastream {
 namespace core {
 /**
@@ -36,15 +34,15 @@ namespace core {
  * MediaPlayer 负责管理媒体播放的整个流程。
  * 它提供了播放控制（播放、暂停、停止）、文件打开、位置跳转等功能。
  * 它通过 Qt 的信号与槽机制与其他部分（如用户界面）进行通信。
+ *
  */
-class AURORASTREAM_API MediaPlayer : public QObject // 使用 AURORASTREAM_API 宏
+class AURORASTREAM_API MediaPlayer : public QObject
 {
-    Q_OBJECT // 启用 Qt 的元对象系统
-
+    Q_OBJECT
 public:
     /**
      * @enum State
-     * @brief 定义播放器可能的状态。
+     * @brief 定义播放器可能的状态
      */
     enum State {
         Stopped = 0, ///< 停止状态
@@ -55,25 +53,23 @@ public:
     Q_ENUM(State) // 注册枚举到 Qt 元对象系统
 
     /**
-     * @brief MediaPlayer 构造函数。
-     * @param parent QObject 父对象指针。
+     * @brief MediaPlayer 构造函数
+     * @param parent QObject 父对象指针
      */
     explicit MediaPlayer(QObject *parent = nullptr);
 
     /**
-     * @brief MediaPlayer 析构函数。
+     * @brief MediaPlayer 析构函数
      */
     ~MediaPlayer() override;
 
-    // --- 播放控制方法 ---
-
     /**
-     * @brief 开始播放。
+     * @brief 开始播放
      */
     Q_INVOKABLE void play();
 
     /**
-     * @brief 暂停播放。
+     * @brief 暂停播放
      */
     Q_INVOKABLE void pause();
 
@@ -83,53 +79,49 @@ public:
     Q_INVOKABLE void stop();
 
     /**
-     * @brief 打开一个媒体文件。
-     * @param fileName 文件路径。
-     * @return 是否成功打开。
-     */
+ 	 * @brief 加载媒体文件
+ 	 * @param fileName 媒体文件路径
+ 	 * @return 成功加载返回 true，否则返回 false
+ 	 */
     Q_INVOKABLE bool openFile(const QString& fileName);
 
     /**
-     * @brief 跳转到指定位置。
-     * @param position 目标位置 (毫秒)。
+     * @brief 跳转到指定位置
+     * @param position 目标位置 (毫秒)
      */
     Q_INVOKABLE void seek(qint64 position);
 
-    // --- 状态查询方法 ---
-
     /**
-     * @brief 获取当前状态。
-     * @return 当前 State。
+     * @brief 获取当前状态
+     * @return 当前状态
      */
     State getState() const;
 
     /**
-     * @brief 检查是否正在播放。
-     * @return 如果正在播放返回 true。
+     * @brief 检查是否正在播放
+     * @return 是否正在播放
      */
     bool isPlaying() const;
 
     /**
-     * @brief 获取当前媒体文件路径。
-     * @return 文件路径。
+     * @brief 获取当前媒体文件路径
+     * @return 当前媒体文件路径
      */
     QString getCurrentMedia() const;
 
     /**
-     * @brief 获取媒体总时长。
-     * @return 总时长 (毫秒)。
+     * @brief 获取当前媒体文件总时长
+     * @return 当前媒体文件总时长（毫秒）
      */
     qint64 getDuration() const;
 
     /**
-     * @brief 获取当前播放位置。
-     * @return 当前位置 (毫秒)。
+ 	 * @brief 获取当前播放位置
+ 	 * @return 当前播放位置（毫秒）
      */
     qint64 getPosition() const;
 
 signals:
-    // --- Qt 信号：用于通知状态和事件变化 ---
-
     /**
      * @brief 状态改变时发出。
      * @param state 新状态。
@@ -163,16 +155,16 @@ signals:
 private:
 	// --- 私有成员变量 ---
     State m_state;             ///< 当前播放状态
-    QString m_currentMedia;    ///< 当前媒体文件路径
     qint64 m_duration;         ///< 媒体总时长 (毫秒)
     qint64 m_position;         ///< 当前播放位置 (毫秒)
+	QString m_currentMedia;    ///< 当前媒体文件路径
 
-	// --- FFmpeg 相关成员 (使用 void* 隐藏具体类型) ---
-    void* m_formatContext;     ///< FFmpeg 格式上下文指针 (实际类型是 AVFormatContext*)
+	// --- FFmpeg 相关成员 ---
+	int m_videoStreamIndex;    ///< 视频流索引
+    int m_audioStreamIndex;    ///< 音频流索引
+    void* m_formatContext;     ///< FFmpeg 格式上下文指针
     void* m_videoCodecContext; ///< FFmpeg 视频解码器上下文指针
     void* m_audioCodecContext; ///< FFmpeg 音频解码器上下文指针
-    int m_videoStreamIndex;    ///< 视频流索引
-    int m_audioStreamIndex;    ///< 音频流索引
 };
 
 } // namespace core

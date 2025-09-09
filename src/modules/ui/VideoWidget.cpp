@@ -5,8 +5,8 @@
  * 本文件实现了 VideoWidget 类，它提供了一个视频播放器界面
  * 包括播放、暂停、停止等基本功能
  *
- * @Author : polarours
- * @Date   : 2025/08/25
+ * @author : polarours
+ * @date   : 2025/08/25
  ********************************************************************************/
 
 #include "aurorastream/modules/ui/VideoWidget.h"

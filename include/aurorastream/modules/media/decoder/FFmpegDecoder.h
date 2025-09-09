@@ -18,7 +18,6 @@
 #include <memory>
 
 #include "AuroraStream/AuroraStream.h"
-
 #include "aurorastream/modules/media/decoder/Decoder.h"
 
 // --- FFmpeg 前向声明 ---
@@ -40,7 +39,6 @@ namespace decoder {
 class AURORASTREAM_API FFmpegDecoder : public Decoder
 {
     Q_OBJECT
-
 public:
 	/**
      * @brief 构造函数
@@ -162,7 +160,6 @@ public:
 private slots:
 
 protected:
-
     // ---  FFmpeg 相关资源 ---
 	AVFrame*         m_videoFrame;         ///< 视频帧
     AVFrame*         m_audioFrame;         ///< 音频帧
@@ -194,7 +191,6 @@ protected:
     InternalState m_internalState; ///< 当前内部状态
 
 	// --- FFmpeg 相关方法 ---
-
 	/**
      * @brief 初始化 FFmpeg 相关资源
      * @param uri 媒体资源路径

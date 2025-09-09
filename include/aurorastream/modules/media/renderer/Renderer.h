@@ -20,44 +20,78 @@
 namespace aurorastream {
 namespace modules {
 namespace media {
-
 namespace decoder {
-    struct VideoFrame;
-    struct AudioFrame;
+struct VideoFrame;
+struct AudioFrame;
 }
-
 namespace renderer {
-
+/**
+ * @brief 媒体渲染器抽象基类。
+ */
 class AURORASTREAM_API Renderer : public QObject
 {
     Q_OBJECT
-
 public:
-    enum class RendererType {
-        VideoRenderer,
-        AudioRenderer
-    };
+    /**
+     * @brief 构造函数。
+     */
+    explicit Renderer(QObject* parent = nullptr);
 
-    Renderer();
-    virtual ~Renderer();
+    /**
+     * @brief 析构函数。
+     */
+    ~Renderer() override;
 
+    // ---- 禁止拷贝和移动 ----
     Renderer(const Renderer&) = delete;
     Renderer& operator=(const Renderer&) = delete;
     Renderer(Renderer&&) = delete;
     Renderer& operator=(Renderer&&) = delete;
 
+    /**
+     * @brief 初始化渲染器。
+     * @param width 渲染区域的宽度（像素）。
+     * @param height 渲染区域的高度（像素）。
+     * @param windowHandle 可选参数，用于指定渲染的目标窗口句柄（例如 SDL_Window*）。
+     * @return 初始化成功返回 true，否则返回 false。
+     */
     virtual bool initialize(int width, int height, void* windowHandle = nullptr) = 0;
+
+    /**
+     * @brief 调整渲染区域大小。
+     * @param width 新的宽度（像素）。
+     * @param height 新的高度（像素）。
+     */
     virtual void resize(int width, int height) = 0;
+
+    /**
+     * @brief 渲染视频帧。
+     * @param frame 要渲染的视频帧数据。
+     */
     virtual void renderVideo(const aurorastream::modules::meida::decoder::VideoFrame& frame) = 0;
+
+    /**
+     * @brief 渲染音频帧。
+     * @param frame 要渲染的音频帧数据。
+     */
     virtual void renderAudio(const aurorastream::modules::meida::decoder::AudioFrame& frame) = 0;
+
+    /**
+     * @brief 清理渲染器资源。
+     */
     virtual void cleanup() = 0;
+
+    /**
+     * @brief 检查渲染器是否已初始化。
+     * @return 已初始化返回 true，否则返回 false。
+     */
     virtual bool isInitialized() const = 0;
 
 protected:
-    int m_width;
-    int m_height;
-    bool m_initialized;
-    void* m_windowHandle;
+    int m_width;          ///< 当前渲染区域的宽度（像素）。
+    int m_height;         ///< 当前渲染区域的高度（像素）。
+    bool m_initialized;   ///< 标记渲染器是否已初始化。
+    void* m_windowHandle; ///< 用于渲染的目标窗口句柄（由具体实现使用）。
 };
 
 } // namespace renderer

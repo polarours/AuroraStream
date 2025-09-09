@@ -6,8 +6,8 @@
  * 它通常包含视频显示区域 (VideoWidget)、控制面板 (ControlPanel)，
  * 并处理应用程序级别的菜单、工具栏和状态栏。
  *
- * @Author : polarours
- * @Date   : 2025/08/21
+ * @author : polarours
+ * @date   : 2025/08/21
  ********************************************************************************/
 
 #ifndef AURORASTREAM_MODULES_UI_MAINWINDOW_H
@@ -23,22 +23,19 @@ QT_END_NAMESPACE
 
 namespace aurorastream {
 namespace core {
-    class MediaPlayer; // 媒体播放器核心类
+class MediaPlayer; // 媒体播放器核心类
 }
-
 namespace modules {
 namespace ui {
 class VideoWidget; // 视频显示部件
 class ControlPanel; // 控制面板部件
-
 /**
 * @class MainWindow
 * @brief AuroraStream 应用程序的主窗口类。
 * 继承自 QMainWindow，是应用程序 GUI 的核心容器。
 */
 class AURORASTREAM_API MainWindow : public QMainWindow {
-    Q_OBJECT // Qt 宏，启用信号/槽机制
-
+    Q_OBJECT
 public:
     /**
      * @brief MainWindow 构造函数。

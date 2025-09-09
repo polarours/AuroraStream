@@ -24,17 +24,19 @@ namespace aurorastream {
 namespace modules {
 namespace media {
 namespace decoder {
-    struct VideoFrame;
+struct VideoFrame;
 }
-
 namespace renderer {
-
+/**
+ * @brief SDL2 媒体渲染器
+ */
 class AURORASTREAM_API SDLRenderer : public Renderer
 {
     Q_OBJECT
-
 public:
-    SDLRenderer();
+
+    explicit SDLRenderer(QObject *parent = nullptr);
+
     ~SDLRenderer() override;
 
     SDLRenderer(const SDLRenderer&) = delete;

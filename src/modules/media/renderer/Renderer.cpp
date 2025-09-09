@@ -4,8 +4,8 @@
  *
  * 本文件实现了 Renderer 类，它提供了渲染器的基本功能
  *
- * @Author : polarours
- * @Date   : 2025/08/25
+ * @author : polarours
+ * @date   : 2025/08/25
  ********************************************************************************/
 
 #include "aurorastream/modules/media/renderer/Renderer.h"

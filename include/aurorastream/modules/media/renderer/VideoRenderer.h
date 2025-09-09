@@ -20,17 +20,17 @@ namespace aurorastream {
 namespace modules {
 namespace media {
 namespace decoder {
-    struct VideoFrame;
+struct VideoFrame;
 }
-
 namespace renderer {
 
 class AURORASTREAM_API VideoRenderer
 {
-
 public:
-    VideoRenderer();
-    virtual ~VideoRenderer();
+
+    explicit VideoRenderer(QObject* parent = nullptr);
+
+    ~VideoRenderer() override;
 
     VideoRenderer(const VideoRenderer&) = delete;
     VideoRenderer& operator=(const VideoRenderer&) = delete;

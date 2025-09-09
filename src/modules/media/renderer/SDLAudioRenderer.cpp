@@ -1,11 +1,12 @@
 /********************************************************************************
  * @file   : SDLAudioRenderer.cpp
- * @brief  :
+ * @brief  : AuroraStream SDL音频渲染器模块的实现
  *
+ * 本文件实现了 SDLAudioRenderer 类，它提供了SDL音频渲染器的基本功能
+ * 包括初始化、播放控制、状态管理等
  *
- *
- * @Author : polarours
- * @Date   : 2025/08/25
+ * @author : polarours
+ * @date   : 2025/08/25
  ********************************************************************************/
 
 #include "aurorastream/modules/media/renderer/SDLAudioRenderer.h"

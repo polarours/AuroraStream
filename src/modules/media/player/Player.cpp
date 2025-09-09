@@ -5,8 +5,8 @@
  * 本文件实现了 Player 类，它提供了媒体播放器的基本功能
  * 包括初始化、播放控制、状态管理等
  *
- * @Author : polarours
- * @Date   : 2025/08/25
+ * @author : polarours
+ * @date   : 2025/08/25
  ********************************************************************************/
 
 #include "aurorastream/modules/media/player/Player.h"

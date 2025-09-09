@@ -4,8 +4,8 @@
  *
  *
  *
- * @Author : polarours
- * @Date   : 2025/08/25
+ * @author : polarours
+ * @date   : 2025/08/25
  ********************************************************************************/
 
 #include "aurorastream/modules/ui/ControlPanel.h"

@@ -2,18 +2,18 @@
  * @file   : MediaPlayer.cpp
  * @brief  : 实现了 aurorastream::core::MediaPlayer 类。
  *
- * 该文件实现了 aurorastream::core::MediaPlayer 类，该类用于播放媒体文件。
+ * 该文件实现了 aurorastream::core::MediaPlayer 类，该类是 AuroraStream 框架的核心媒体播放器。
  * 功能包括：播放、暂停、停止、快进、快退、音量控制、播放进度控制等。
  *
- * @Author : polarours
- * @Date   : 2025/08/22
+ * @author : polarours
+ * @date   : 2025/08/22
  ********************************************************************************/
 
-#include <QTimer>
-#include <QFileInfo>
 #include <QDir>
 #include <QDebug>
+#include <QTimer>
 #include <QDateTime>
+#include <QFileInfo>
 
 #include <memory>
 #include <thread>
@@ -44,7 +44,7 @@ namespace core{
  * @param parent QObject指针，用于Qt对象树管理
  * @note 该构造函数会初始化 FFmpeg 网络模块
  */
-MediaPlayer::MediaPlayer(QObject *parent)
+MediaPlayer::MediaPlayer(QObject* parent)
     : QObject(parent)               // 调用基类 QObject 的构造函数
     // --- 初始化状态和信息 ---
     , m_state(State::Stopped)       // 初始状态为停止
@@ -56,7 +56,6 @@ MediaPlayer::MediaPlayer(QObject *parent)
     , m_audioCodecContext(nullptr)  // FFmpeg 音频解码器上下文指针初始化为空
     , m_videoStreamIndex(-1)        // -1 表示未找到有效的视频流
     , m_audioStreamIndex(-1)        // -1 表示未找到有效的音频流
-
 {
 	avformat_network_init(); // 初始化 FFmpeg 网络模块
 
@@ -69,14 +68,14 @@ MediaPlayer::MediaPlayer(QObject *parent)
  */
 MediaPlayer::~MediaPlayer()
 {
-	stop(); //  确保停止播放
+	stop(); // 确保停止播放
 
-    // 释放解码器上下文
+    // 释放视频解码器上下文
     if (m_videoCodecContext) {
         avcodec_free_context(&m_videoCodecContext);
 	}
 
-    // 释放解码器上下文
+    // 释放音频解码器上下文
 	if (m_audioCodecContext) {
 	    avcodec_free_context(&m_audioCodecContext);
 	}
@@ -86,17 +85,16 @@ MediaPlayer::~MediaPlayer()
 	    avformat_free_context(m_formatContext);
 	}
 
-    // 生成销毁日志
-	qDebug() << "MediaPlayer destroyed.";
+	qDebug() << "MediaPlayer destroyed."; // 生成销毁日志
 }
 
 /**
- * @brief 开始播放当前加载的媒体
+ * @brief 开始播放
  * @note 如果当前没有加载媒体，则不会执行任何操作
  */
 void MediaPlayer::play()
 {
-	qDebug() << "MediaPlayer::play() called. Current state:" << m_state; ";
+	qDebug() << "MediaPlayer::play() called. Current state: " << m_state; // 生成日志，记录当前状态
 
 	//  状态检查：如果当前状态为停止且未加载媒体，则发出警告并返回
 	if (m_state == State::Stopped && m_currentMedia.isEmpty()) {
@@ -112,8 +110,7 @@ void MediaPlayer::play()
         emit stateChanged(m_state);
 	}
 
-	// 输出已经是播放状态的情况
-	qDebug() << "MediaPlayer::play(): Already playing.";
+	qDebug() << "MediaPlayer::play(): Already playing."; // 输出已经是播放状态的情况
 }
 
 /**
@@ -123,7 +120,7 @@ void MediaPlayer::play()
  */
 void  MediaPlayer::pause()
 {
-	qDebug() << "MediaPlayer::pause() called. Current state:" << m_state;
+	qDebug() << "MediaPlayer::pause() called. Current state: " << m_state; // 生成日志，记录当前状态
 
   	//  状态检查：如果当前状态为播放状态，则切换为暂停状态
     if (m_state == State::Playing) {
@@ -132,8 +129,8 @@ void  MediaPlayer::pause()
         emit stateChanged(m_state);
 	}
 
-	//  输出非播放状态的情况
-	qDebug() << "MediaPlayer::pause(): Not playing,  cannot pause."
+
+	qDebug() << "MediaPlayer::pause(): Not playing,  cannot pause." // 输出非播放状态的情况
 }
 
 /**
@@ -143,7 +140,7 @@ void  MediaPlayer::pause()
  */
 void MediaPlayer::stop()
 {
-	qDebug() << "MediaPlayer::stop() called. Current state:" << m_state;
+	qDebug() << "MediaPlayer::stop() called. Current state:" << m_state; // 生成日志，记录当前状态
 
 	//  状态检查：如果当前状态不是停止状态，则切换为停止状态
 	if (m_state != State::Stopped) {
@@ -156,24 +153,23 @@ void MediaPlayer::stop()
 		if (oldPosition != m_position) {
 			emit positionChanged(m_position);
 		}
-
-        // 输出已经是停止状态的情况
-        qDebug() << "MediaPlayer::stop(): Already stopped.";
 	}
+
+	qDebug() << "MediaPlayer::stop(): Already stopped."; // 输出已经是停止状态的情况
 }
 
 /**
  * @brief 加载媒体文件
- * @param filename 媒体文件路径
+ * @param fileName 媒体文件路径
  * @return 成功加载返回 true，否则返回 false
  */
-bool MediaPlayer::openFile(const QString &filename)
+bool MediaPlayer::openFile(const QString& fileName)
 {
-	qDebug() <<  "MediaPlayer::openFile() called with filename:" << filename;
+	qDebug() <<  "MediaPlayer::openFile() called with filename:" << filename; // 生成日志，记录文件名
 
-	QFileInfo fileInfo(filename);
+	QFileInfo fileInfo(fileName); // 创建文件信息对象
 
-	// 检查文件是否存在
+	// 检查文件是否存在或者是否是普通文件
 	if (!fileInfo.exists() && !fileInfo.isFile()) {
 		QString errorMessage = QString("MediaPlayer::openFile() failed. File does not exist or is not a regular file: %1").arg(filename);
 		qWarning() << errorMessage;
@@ -215,7 +211,7 @@ bool MediaPlayer::openFile(const QString &filename)
 	// 如果未找到流信息，则返回 false
 	if (ret < 0) {
 		QString errorMessage = QString("MediaPlayer::openFile() failed. Could not find stream information in file: %1").arg(filename);
-	   	char  errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
+	   	char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
 		av_strerror(ret, errbuf, AV_ERROR_MAX_STRING_SIZE);
 		QString detailMessage = QString("FFmpeg error: %1 (%2)").arg(errorMessage).arg(errbuf);
 		qWarning() << detailMessage;
@@ -224,16 +220,17 @@ bool MediaPlayer::openFile(const QString &filename)
 		return false;
 	}
 
-	int videoStreamIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0);// 查找视频流
-	int audioStreamIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0);// 查找音频流
+	int videoStreamIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_VIDEO, -1, -1, nullptr, 0); // 查找视频流
+	int audioStreamIndex = av_find_best_stream(formatContext, AVMEDIA_TYPE_AUDIO, -1, -1, nullptr, 0); // 查找音频流
 
-	AVCodecContext* videoCodecContext = nullptr;// 视频解码器上下文
-	AVCodecContext* audioCodecContext = nullptr;// 音频解码器上下文
+	AVCodecContext* videoCodecContext = nullptr; // 视频解码器上下文
+	AVCodecContext* audioCodecContext = nullptr; // 音频解码器上下文
 
 	// 查找并初始化视频解码器
 	if (videoStreamIndex >= 0) {
 		AVStream* videoStream = formatContext->streams[videoStreamIndex];
 		const AVCodec* videoCodec = acvodec_find_decoder(videoStream->codecpar->codec_id);
+
 		if (videoCodec) {
 			videoCodecContext = avcodec_alloc_context3(videoCodec);
 			if (videoCodecContext && avcodec_parameters_to_context(videoCodecContext, videoStream->codecpar) >= 0) {
@@ -306,7 +303,8 @@ bool MediaPlayer::openFile(const QString &filename)
 
 	qDebug() << "MediaPlayer::openFile(): Successfully opened file:" << filename;
 
-	emit mediaOpened(filename);
+	emit mediaOpened(fileName);
+
 	if (m_duration > 0) {
 		emit durationChanged(m_duration);
 	}
@@ -314,9 +312,15 @@ bool MediaPlayer::openFile(const QString &filename)
 	return true;
 }
 
+/**
+ * @brief 跳转到指定位置
+ * @param position 目标位置 (毫秒)。
+ */
 void MediaPlayer::seek(qint64 position)
 {
-	qDebug() << "MediaPlayer::seek() called with position:" << position;
+	qDebug() << "MediaPlayer::seek() called with position:" << position; // 生成日志，记录跳转位置
+
+	// 检查是否加载了媒体文件
 	if (!m_formatContext) {
 		QString errorMessage = "MediaPlayer::seek() failed. No media is loaded.";
 		qWarning() << errorMessage;
@@ -324,16 +328,20 @@ void MediaPlayer::seek(qint64 position)
 		return;
 	}
 
+	// 检查跳转位置是否小于0
     if (position < 0) {
 		position = 0;
 	}
 
+	// 检查跳转位置是否超过文件长度
 	if (m_duration > 0 && position > m_duration) {
 		position = m_duration;
 	}
 
 	int64_t timestamp_us = position * 1000;
-	int ret =  av_seek_frame(m_formatContext, -1, timestamp_us, AVSEEK_FLAG_BACKWARD);
+	int ret = av_seek_frame(m_formatContext, -1, timestamp_us, AVSEEK_FLAG_BACKWARD);
+
+	// 检查跳转是否成功
 	if (ret < 0) {
 		QString errorMessage = "MediaPlayer::seek() failed. Could not seek to position.";
 		char errbuf[AV_ERROR_MAX_STRING_SIZE] = {0};
@@ -344,39 +352,64 @@ void MediaPlayer::seek(qint64 position)
         return;
 	}
 
+	// 刷新视频解码器缓冲区
 	if (m_videoCodecContext) {
         avcodec_flush_buffers(m_videoCodecContext);
     }
 
+	// 刷新音频解码器缓冲区
     if (m_audioCodecContext) {
         avcodec_flush_buffers(m_audioCodecContext);
     }
 
     qint64 oldPosition = m_position;
     m_position = position;
+
     qDebug() << "MediaPlayer: Seeked to position:" << position;
+
+	// 如果位置发生变化，则发出信号
     if (oldPosition != m_position) {
         emit positionChanged(m_position);
     }
 }
 
-MediaPlayer::State MediaPlayer::state() const {
+/**
+ * @brief 获取当前状态
+ * @return 当前状态
+ */
+MediaPlayer::State MediaPlayer::getState() const {
 	return m_state;
 }
 
+/**
+ * @brief 获取当前是否正在播放
+ * @return 是否正在播放
+ */
 bool MediaPlayer::isPlaying() const {
     return m_state == State::Playing;
 }
 
-QString MediaPlayer::currentMedia() const {
+/**
+ * @brief 获取当前媒体文件路径
+ * @return 当前媒体文件路径
+ */
+QString MediaPlayer::getCurrentMedia() const {
 	return  m_currentMedia;
 }
 
-qint64 MediaPlayer::duration() const {
+/**
+ * @brief 获取当前媒体文件时长
+ * @return 当前媒体文件总时长（毫秒）
+ */
+qint64 MediaPlayer::getDuration() const {
     return  m_duration;
 }
 
-qint64 MediaPlayer::position() const {
+/**
+ * @brief 获取当前播放位置
+ * @return 当前播放位置（毫秒）
+ */
+qint64 MediaPlayer::getPosition() const {
     return  m_position;
 }
 

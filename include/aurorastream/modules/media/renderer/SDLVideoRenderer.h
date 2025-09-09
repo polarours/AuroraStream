@@ -33,8 +33,9 @@ class AURORASTREAM_API SDLVideoRenderer : public VideoRenderer
 {
 
 public:
-    SDLVideoRenderer();
-    ~SDLVideoRenderer();
+    explicit SDLVideoRenderer(QObject* parent = nullptr);
+
+    ~SDLVideoRenderer() override;
 
     SDLVideoRenderer(const SDLVideoRenderer&) = delete;
     SDLVideoRenderer& operator=(const SDLVideoRenderer&) = delete;

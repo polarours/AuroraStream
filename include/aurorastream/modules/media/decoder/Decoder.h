@@ -27,9 +27,8 @@ namespace aurorastream {
 namespace modules {
 namespace media {
 namespace decoder {
-
 /**
- * @brief 视频帧数据结构，包含视频帧数据和相关信息
+ * @brief 视频帧数据结构，包含视频帧数据和相关信息。
  */
 struct AURORASTREAM_API AudioFrame {
     unsinged char* data[8] = { nullptr }; ///< 音频帧数据数组
@@ -47,22 +46,20 @@ struct AURORASTREAM_API AudioFrame {
 class AURORASTREAM_API Decoder : public QObject
 {
     Q_OBJECT
-
 public:
-
     /**
-     * @brief 构造函数
-     * @param parent QObject 父对象
+     * @brief 构造函数。
+     * @param parent QObject 父对象。
      */
-    explicit Decoder(QObject *parent = nullptr);
+    explicit Decoder(QObject* parent = nullptr);
 
     /**
-     * @brief 析构函数
+     * @brief 析构函数。
      */
     ~Decoder() override;
 
     /**
-     * @brief 禁用拷贝和移动构造函数
+     * @brief 禁用拷贝和移动构造函数。
      */
     Decoder(const Decoder&) = delete;
 
@@ -181,7 +178,6 @@ public:
     virtual int getAudioChannels() const = 0;
 
 signals:
-
 	/**
      * @brief 视频帧就绪信号
      * @param frame 视频帧数据
@@ -218,11 +214,10 @@ signals:
     void finished();
 
 protected:
-
-    QString m_uri;
-    qint64 m_duration = 0;
-    qint64 m_position = 0;
-	bool m_isOpen = false;
+    QString m_uri;         ///< 媒体文件路径
+    qint64 m_duration = 0; ///< 总时长
+    qint64 m_position = 0; ///< 当前播放位置
+	bool m_isOpen = false; ///< 媒体文件是否已经打开
 };
 
 } // namespace decoder
