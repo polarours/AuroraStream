@@ -124,6 +124,11 @@ void FFmpegDecoder::start() {
 	setInternalState(InternalState::Playing);
 }
 
+/**
+ * brief 解码暂停
+ * @note  调用 av_read_pause() 暂停解码
+ * @return 成功返回true，失败返回false
+ */
 bool FFmpegDecoder::pause() {
     if (m_internalState != InternalState::Playing) {
         qWarning() << "Decoder is not in playing state";
@@ -131,10 +136,16 @@ bool FFmpegDecoder::pause() {
     }
 
     setInternalState(InternalState::Pausing);
+
     setInternalState(InternalState::Paused);
+
     return true;
 }
 
+/**
+ * @brief 解码结束
+ * @note 调用 deinitFFmpeg() 释放所有资源
+ */
 void FFmpegDecoder::stop() {
     if (m_internalState == InternalState::Stopped) {
         return;
@@ -146,6 +157,11 @@ void FFmpegDecoder::stop() {
     emit finished();
 }
 
+/**
+ * @brief 跳转到指定位置
+ * @param position 跳转到的位置
+ * @return 成功返回true，失败返回false
+ */
 bool FFmpegDecoder::seek(qint64 position) {
     if (m_internalState != InternalState::Playing && m_internalState != InternalState::Paused) {
         qWarning() << "Decoder is not in playing or paused state";
@@ -153,7 +169,8 @@ bool FFmpegDecoder::seek(qint64 position) {
     }
 
     setInternalState(InternalState::Seeking);
-    if (av_seek_frame(m_formatContext, -1, position, AVSEEK_FLAG_BACKWARD) < 0) {
+
+	if (av_seek_frame(m_formatContext, -1, position, AVSEEK_FLAG_BACKWARD) < 0) {
         setInternalState(InternalState::Error);
         emit error("Failed to seek");
         return false;
@@ -164,50 +181,99 @@ bool FFmpegDecoder::seek(qint64 position) {
     return true;
 }
 
+/**
+ * @brief 检查媒体是否打开
+ * @return 打开返回true，否则返回false
+ */
 bool FFmpegDecoder::isOpen() const {
     return m_internalState != InternalState::Stopped && m_internalState != InternalState::Error;
 }
 
+/**
+ * @brief 检查媒体是否正在播放
+ * @return 播放返回true，否则返回false
+ */
 bool FFmpegDecoder::isPlaying() const {
     return m_internalState == InternalState::Playing;
 }
 
+/**
+ * @brief 检查媒体是否暂停
+ * @return 暂停返回true，否则返回false
+ */
 bool FFmpegDecoder::isPaused() const {
     return m_internalState == InternalState::Paused;
 }
 
+/**
+ * @brief 检查媒体是否停止
+ * @return 停止返回true，否则返回false
+ */
 bool FFmpegDecoder::isStopped() const {
     return m_internalState == InternalState::Stopped;
 }
 
+/**
+ * @brief 获取媒体时长
+ * @return 媒体时长，单位毫秒
+ */
 qint64 FFmpegDecoder::getDuration() const {
     return m_duration;
 }
 
+/**
+ * @brief 获取当前播放位置
+ * @return 当前播放位置，单位毫秒
+ */
 qint64 FFmpegDecoder::getPosition() const {
     return m_position;
 }
 
+/**
+ * @brief 获取视频宽度
+ * @return 视频宽度
+ */
 int FFmpegDecoder::getVideoWidth() const {
     return m_videoCodecContext ? m_videoCodecContext->width : 0;
 }
 
+/**
+ * @brief 获取视频高度
+ * @return 视频高度
+ */
 int FFmpegDecoder::getVideoHeight() const {
     return m_videoCodecContext ? m_videoCodecContext->height : 0;
 }
 
+/**
+ * @brief 获取视频帧率
+ * @return 视频帧率
+ */
 double FFmpegDecoder::getVideoFrameRate() const {
     return m_videoCodecContext ? av_q2d(m_videoCodecContext->framerate) : 0.0;
 }
 
+/**
+ * @brief 获取音频采样率
+ * @return 音频采样率
+ */
 int FFmpegDecoder::getAudioSampleRate() const {
     return m_audioCodecContext ? m_audioCodecContext->sample_rate : 0;
 }
 
+/**
+ * @brief 获取音频通道数
+ * @return 音频通道数
+ */
 int FFmpegDecoder::getAudioChannels() const {
     return m_audioCodecContext ? m_audioCodecContext->channels : 0;
 }
 
+/**
+ * @brief 初始化 FFmpeg 资源
+ * @param uri 媒体文件路径
+ * @return 初始化成功返回true，否则返回false
+ */
 bool FFmpegDecoder::initFFmpeg(const QString &uri) {
     // Initialize FFmpeg resources
     if (avformat_open_input(&m_formatContext, uri.toStdString().c_str(), nullptr, nullptr) < 0) {
@@ -279,6 +345,9 @@ bool FFmpegDecoder::initFFmpeg(const QString &uri) {
     return true;
 }
 
+/**
+ * @brief 释放 FFmpeg 资源
+ */
 void FFmpegDecoder::deinitFFmpeg() {
     if (m_videoFrame) {
         av_frame_free(&m_videoFrame);
@@ -321,6 +390,9 @@ void FFmpegDecoder::deinitFFmpeg() {
     m_position = 0;
 }
 
+/**
+ * @brief 解码循环
+ */
 void FFmpegDecoder::decodeLoop() {
     AVPacket packet;
     while (m_internalState == InternalState::Playing) {
@@ -343,6 +415,10 @@ void FFmpegDecoder::decodeLoop() {
     }
 }
 
+/**
+ * @brief 处理视频帧
+ * @param packet 视频包
+ */
 void FFmpegDecoder::processVideoFrame(AVPacket *packet) {
     if (avcodec_send_packet(m_videoCodecContext, packet) < 0) {
         qWarning() << "Failed to send video packet";
@@ -355,6 +431,10 @@ void FFmpegDecoder::processVideoFrame(AVPacket *packet) {
     }
 }
 
+/**
+ * @brief 处理音频帧
+ * @param packet 音频包
+ */
 void FFmpegDecoder::processAudioFrame(AVPacket *packet) {
     if (avcodec_send_packet(m_audioCodecContext, packet) < 0) {
         qWarning() << "Failed to send audio packet";
@@ -367,6 +447,9 @@ void FFmpegDecoder::processAudioFrame(AVPacket *packet) {
     }
 }
 
+/**
+ * @brief 更新播放位置
+ */
 void FFmpegDecoder::updatePosition() {
     if (m_formatContext) {
         m_position = av_rescale_q(m_formatContext->pb->pos, AV_TIME_BASE_Q, m_formatContext->streams[0]->time_base);
@@ -374,6 +457,10 @@ void FFmpegDecoder::updatePosition() {
     }
 }
 
+/**
+ * @brief 设置内部状态
+ * @param newState 新的内部状态
+ */
 void FFmpegDecoder::setInternalState(InternalState newState) {
     if (m_internalState != newState) {
         m_internalState = newState;

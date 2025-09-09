@@ -32,9 +32,10 @@ add_library(MediaModule STATIC
 
 # 设置 Media 模块的包含目录
 target_include_directories(MediaModule PUBLIC
-
+    $<BUILD_INTERFACE:${ROOT_DIR}/include/aurorastream/modules/media>
 )
 
+# 设置 Media 模块的链接目录
 target_link_libraries(MediaModule
         ${FFMPEG_LIBRARIES}
         ${SDL2_LIBRARIES}

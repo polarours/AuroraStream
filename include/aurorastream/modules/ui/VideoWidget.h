@@ -75,8 +75,8 @@ protected:
     void resizeEvent(QResizeEvent *event) override;
 
 private:
-    aurorastream::core::MediaPlayer*                    m_mediaPlayer; ///< 关联的媒体播放器
-    aurorastream::modules::media::renderer::Renderer*   m_renderer;    ///< 关联的视频渲染器
+    aurorastream::core::MediaPlayer* m_mediaPlayer;               ///< 关联的媒体播放器
+    aurorastream::modules::media::renderer::Renderer* m_renderer; ///< 关联的视频渲染器
 };
 
 } // namespace ui

@@ -18,12 +18,12 @@ add_library(UIModule STATIC
     ${UI_MODULE_SOURCES}
 )
 
-# 设置 UIModule 模块库的头文件路径
+# 设置 UIModule 模块库的包含路径
 target_include_directories(UIModule
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<BUILD_INTERFACE:${ROOT_DIR}/include/aurorastream/modules/ui>
 )
 
-#
+# 链接 UIModule 模块库到 AuroraStream 应用程序
 target_link_libraries(UIModule
 
 )

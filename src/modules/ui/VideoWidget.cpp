@@ -1,8 +1,9 @@
 /********************************************************************************
  * @file   : VideoWidget.cpp
- * @brief  :
+ * @brief  : AuroraStream 视频播放器模块的实现
  *
- *
+ * 本文件实现了 VideoWidget 类，它提供了一个视频播放器界面
+ * 包括播放、暂停、停止等基本功能
  *
  * @Author : polarours
  * @Date   : 2025/08/25
@@ -14,20 +15,15 @@ namespace aurorastream {
 namespace modules {
 namespace ui {
 
-VideoWidget::VideoWidget(QWidget* parent) : QWidget(parent) {
-    m_videoPlayer = new QMediaPlayer(this);
-    m_videoWidget = new QVideoWidget(this);
-    
-    QVBoxLayout* layout = new QVBoxLayout(this);
-    layout->addWidget(m_videoWidget);
-    setLayout(layout);
-    
-    m_videoPlayer->setVideoOutput(m_videoWidget);
-    m_videoPlayer->setNotifyInterval(50);
+VideoWidget::VideoWidget(QWidget* parent)
+    : QWidget(parent)
+    // TODO: 初始化播放器
+{
+
 }
 
 VideoWidget::~VideoWidget() {
-    // Cleanup resources
+    // TODO: 释放播放器资源
 }
 
 void VideoWidget::setVideoSource(const QString& source) {

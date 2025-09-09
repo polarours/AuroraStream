@@ -34,7 +34,6 @@ class ControlPanel; // 控制面板部件
 /**
 * @class MainWindow
 * @brief AuroraStream 应用程序的主窗口类。
-*
 * 继承自 QMainWindow，是应用程序 GUI 的核心容器。
 */
 class AURORASTREAM_API MainWindow : public QMainWindow {
