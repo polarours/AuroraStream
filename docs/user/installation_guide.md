@@ -31,4 +31,7 @@ git clone https://github.com/polarours/AuroraStream.git
 docker build -t aurorastream-dev:latest .
 ```
 
-### 3、
+### 3、创建Docker容器
+```shell
+docker run 
+```

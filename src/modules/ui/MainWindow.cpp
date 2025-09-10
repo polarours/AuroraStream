@@ -13,7 +13,10 @@ include "aurorastream/modules/ui/MainWindow.h"
 namespace aurorastream {
 namespace modules {
 namespace ui {
-
+/**
+ * @brief MainWindow 类的构造函数
+ * @param parent 父窗口
+ */
 MainWindow::MainWindow(QWidget* parent)
 	: QMainWindow(parent)
 	// TODO: 初始化成员变量
@@ -60,6 +63,16 @@ void MainWindow::closeEvent(QCloseEvent* event)
 {
     QMainWindow::closeEvent(event);
 }
+
+/**
+ * @brief 显示事件
+ */
+void MainWindow::show()
+{
+    QMainWindow::show();
+}
+
+// TODO: 实现其他成员函数
 
 } // namespace ui
 } // namespace modules

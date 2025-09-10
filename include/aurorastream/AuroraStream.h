@@ -92,7 +92,25 @@
  * 以防止与用户代码或其他库发生命名冲突。
  */
 namespace aurorastream {
+    enum class logLevel {
+        DEBUG,
+        INFO,
+        WARNING,
+        ERROR,
+        FATAL
+    };
 
+    enum class  mediaState {
+        PLAYING,
+        PAUSED,
+        STOPPED
+    };
+
+    enum class  mediaType {
+        VIDEO,
+        AUDIO,
+        IMAGE
+    };
 } // namespace aurorastream
 
 #endif  // AURORASTREAM_H
