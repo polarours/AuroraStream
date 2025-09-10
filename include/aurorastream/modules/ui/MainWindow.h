@@ -1,6 +1,6 @@
 /********************************************************************************
  * @file   : MainWindow.h
- * @brief  : 声明 AuroraStream 主窗口类。
+ * @brief  : 定义了 aurorastream::modules::ui::MainWindow 主窗口类。
  *
  * MainWindow 是 AuroraStream 应用程序的主用户界面窗口。
  * 它通常包含视频显示区域 (VideoWidget)、控制面板 (ControlPanel)，

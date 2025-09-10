@@ -19,9 +19,10 @@
 #include "AuroraStream/AuroraStream.h"
 
 // --- 前向声明 ---
-struct AVCodecContext;
-struct AVCodecContext;
-struct AVFrame;
+struct VideoCodecContext;
+struct AudioCodecContext;
+struct VideoFrame;
+struct AudioFrame;
 
 namespace aurorastream {
 namespace modules {
@@ -29,6 +30,20 @@ namespace media {
 namespace decoder {
 /**
  * @brief 视频帧数据结构，包含视频帧数据和相关信息。
+ */
+struct AURORASTREAM_API VideoFrame {
+	unsigned char* data[4] = { nullptr }; ///< 视频帧数据数组
+    int linesize[4] = { 0 };              ///< 视频帧数据行大小数组
+    int width = 0;                        ///< 视频帧宽度
+    int height = 0;                       ///< 视频帧高度
+    int format = 0;                       ///< 视频帧格式
+    int64_t pts = 0;                      ///< 视频帧显示时间戳
+    int64_t duration = 0;                 ///< 视频帧时长
+    int64_t pos = 0;                      ///< 视频帧位置
+};
+
+/**
+ * @brief 音频帧数据结构，包含音频帧数据和相关信息。
  */
 struct AURORASTREAM_API AudioFrame {
     unsinged char* data[8] = { nullptr }; ///< 音频帧数据数组

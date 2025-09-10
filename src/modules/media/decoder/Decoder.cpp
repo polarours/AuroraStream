@@ -23,10 +23,10 @@ namespace decoder {
  * @note 初始化解码器状态。
  */
 Decoder::Decoder(QObject* parent)
-	: QObject(parent),
-    m_isOpen(false), ///< 初始状态为未打开
-    m_duration(0),   ///< 初始时长为0
-    m_position(0)    ///< 初始位置为0
+	: QObject(parent) ///< 调用父类构造函数
+    , m_isOpen(false) ///< 初始状态为未打开
+    , m_duration(0)   ///< 初始时长为0
+    , m_position(0)   ///< 初始位置为0
 {
 	qDebug() << "Decoder initialized";
 }

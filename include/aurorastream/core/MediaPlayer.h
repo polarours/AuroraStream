@@ -1,8 +1,8 @@
 /********************************************************************************
  * @file   : MediaPlayer.h
- * @brief  : 定义了 aurorastream::core::MediaPlayer 类
+ * @brief  : 定义了 aurorastream::core::MediaPlayer 类。
  *
- * 该文件定义了 aurorastream::core::MediaPlayer 类，该类是 AuroraStream 框架的核心媒体播放器主要接口
+ * 该类是 AuroraStream 框架的核心媒体播放器主要接口，负责管理媒体播放流程，
  * 功能包括：播放、暂停、停止、快进、快退、音量控制、播放进度控制等。
  *
  * @author : polarours
