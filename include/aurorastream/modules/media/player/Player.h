@@ -25,8 +25,9 @@ namespace media {
 namespace decoder {
 class Decoder;
 }
-namespace render {
-class Renderer;
+namespace renderer {
+class VideoRenderer;
+class AudioRenderer;
 }
 namespace player {
 /**
@@ -80,11 +81,18 @@ public:
     void setDecoder(std::unique_ptr<aurorastream::modules::media::decoder::Decoder> decoder);
 
 	/**
-     * @brief 设置渲染器实现
-     * @param renderer 渲染器实现指针，Player 将接管其所有权
-     * @note 调用此方法会清空当前渲染器实例
+     * @brief 设置视频渲染器实现
+     * @param videoRenderer 视频渲染器实现指针，Player 将接管其所有权
+     * @note 调用此方法会清空当前视频渲染器实例
      */
-    void setRenderer(std::unique_ptr<aurorastream::modules::media::render::Renderer> renderer);
+    void setVideoRenderer(std::unique_ptr<aurorastream::modules::media::renderer::VideoRenderer> videoRenderer);
+
+    /**
+     * @brief 设置音频渲染器实现
+     * @param audioRenderer 音频渲染器实现指针，Player 将接管其所有权
+     * @note 调用此方法会清空当前音频渲染器实例
+     */
+    void setAudioRenderer(std::unique_ptr<aurorastream::modules::media::renderer::AudioRenderer> audioRenderer);
 
 	/**
      * @brief 打开媒体资源
@@ -270,15 +278,14 @@ private slots:
 	void onMediaFinished();
 
 private:
-	// --- 成员变量 ---
-    State m_state;	 	                 										///< 当前状态
-    qint64 m_duration;			                                                ///< 总时长 (毫秒)
-    qint64 m_position;	    													///< 当前位置 (毫秒)
-	QString m_currentUri;                                                       ///< 当前媒体URI
-	std::unique_ptr<aurorastream::modules::media::decoder::Decoder> m_decoder;  ///< 解码器
-    std::unique_ptr<aurorastream::modules::media::render::Renderer> m_renderer; ///< 渲染器
+    State m_state;	 	                 										            ///< 当前状态
+    qint64 m_duration;			                                                            ///< 总时长 (毫秒)
+    qint64 m_position;	    													            ///< 当前位置 (毫秒)
+	QString m_currentUri;                                                                   ///< 当前媒体URI
+	std::unique_ptr<aurorastream::modules::media::decoder::Decoder> m_decoder;              ///< 解码器
+    std::unique_ptr<aurorastream::modules::media::renderer::VideoRenderer> m_videoRenderer; ///< 视频渲染器
+    std::unique_ptr<aurorastream::modules::media::renderer::AudioRenderer> m_audioRenderer; ///< 音频渲染器
 
-	// --- 私有方法 ---
     /**
      * @brief 更新播放状态
      * @param newState 新的播放状态

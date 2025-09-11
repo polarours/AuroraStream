@@ -28,7 +28,6 @@ struct AudioFrame;
 }
 
 namespace renderer {
-
 /**
  * @brief AudioRenderer 是音频渲染器模块的抽象基类
  * 定义了音频渲染器的接口

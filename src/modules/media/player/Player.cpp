@@ -46,12 +46,21 @@ void Player::setDecoder(std::unique_ptr<aurorastream::modules::media::decoder::D
 }
 
 /**
- * @brief 设置渲染器
- * @param renderer 渲染器对象
- * @note 渲染器对象的所有权将被转移到 Player 对象
+ * @brief 设置视频渲染器
+ * @param videoRenderer 视频渲染器对象
+ * @note 视频渲染器对象的所有权将被转移到 Player 对象
  */
-void Player::setRenderer(std::unique_ptr<aurorastream::modules::media::render::Renderer> renderer) {
-    m_renderer = std::move(renderer);
+void Player::setVideoRenderer(std::unique_ptr<aurorastream::modules::media::renderer::VideoRenderer> videoRenderer) {
+    m_videoRenderer = std::move(videoRenderer);
+}
+
+/**
+ * @brief 设置音频渲染器
+ * @param audioRenderer 音频渲染器对象
+ * @note 音频渲染器对象的所有权将被转移到 Player 对象
+ */
+void Player::setAudioRenderer(std::unique_ptr<aurorastream::modules::media::renderer::AudioRenderer> audioRenderer) {
+    m_audioRenderer = std::move(audioRenderer);
 }
 
 /**
@@ -365,8 +374,8 @@ bool Player::doClose() {
  * @param frame 视频帧
  */
 void Player::handleVideoFrame(const aurorastream::modules::media::decoder::VideoFrame &frame) {
-    if (m_renderer) {
-        m_renderer->renderVideoFrame(frame);
+    if (m_videoRenderer) {
+        m_videoRenderer->render(frame);
     }
     emit videoFrameReady(frame);
 }
@@ -376,8 +385,8 @@ void Player::handleVideoFrame(const aurorastream::modules::media::decoder::Video
  * @param frame 音频帧
  */
 void Player::handleAudioFrame(const aurorastream::modules::media::decoder::AudioFrame &frame) {
-    if (m_renderer) {
-        m_renderer->renderAudioFrame(frame);
+    if (m_audioRenderer) {
+        m_audioRenderer->queueAudio(frame);
     }
     emit audioFrameReady(frame);
 }

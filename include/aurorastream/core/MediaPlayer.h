@@ -153,13 +153,10 @@ signals:
     void error(const QString& message);
 
 private:
-	// --- 私有成员变量 ---
     State m_state;             ///< 当前播放状态
     qint64 m_duration;         ///< 媒体总时长 (毫秒)
     qint64 m_position;         ///< 当前播放位置 (毫秒)
 	QString m_currentMedia;    ///< 当前媒体文件路径
-
-	// --- FFmpeg 相关成员 ---
 	int m_videoStreamIndex;    ///< 视频流索引
     int m_audioStreamIndex;    ///< 音频流索引
     void* m_formatContext;     ///< FFmpeg 格式上下文指针

@@ -1,243 +1,230 @@
 /********************************************************************************
- * @file   : Decoder.h
- * @brief  : 声明 AuroraStream 媒体解码器抽象基类。
+ * @file   : Decoder.cpp
+ * @brief  : 实现 AuroraStream 媒体解码器模块。
  *
- * 此文件定义了 aurorastream::modules::media::decoder::Decoder 类，
- * 它是所有具体解码器实现（例如，基于 FFmpeg 的解码器）的抽象基类。
- * 它规定了解码器模块必须提供的公共接口和行为。
+ * 本文件实现了 aurorastream::modules::media::decoder::Decoder 类，
+ * 它提供了媒体解码器的基本功能，包括初始化、解码控制、状态管理等。
  *
  * @author : polarours
- * @date   : 2025/08/22
+ * @date   : 2025/08/25
  ********************************************************************************/
 
-#ifndef AURORASTREAM_MODULES_MEDIA_DECODER_DECODER_H
-#define AURORASTREAM_MODULES_MEDIA_DECODER_DECODER_H
+#include <QDebug>
 
-#include <QObject>
-#include <QString>
-
-#include "AuroraStream/AuroraStream.h"
-
-// --- 前向声明 ---
-struct VideoCodecContext;
-struct AudioCodecContext;
-struct VideoFrame;
-struct AudioFrame;
+#include "aurorastream/modules/media/decoder/Decoder.h"
 
 namespace aurorastream {
 namespace modules {
 namespace media {
 namespace decoder {
 /**
- * @brief 视频帧数据结构，包含视频帧数据和相关信息。
+ * @brief Decoder 类的构造函数。
+ * @param parent 父对象。
+ * @note 初始化解码器状态。
  */
-struct AURORASTREAM_API VideoFrame {
-	unsigned char* data[4] = { nullptr }; ///< 视频帧数据数组
-    int linesize[4] = { 0 };              ///< 视频帧数据行大小数组
-    int width = 0;                        ///< 视频帧宽度
-    int height = 0;                       ///< 视频帧高度
-    int format = 0;                       ///< 视频帧格式
-    int64_t pts = 0;                      ///< 视频帧显示时间戳
-    int64_t duration = 0;                 ///< 视频帧时长
-    int64_t pos = 0;                      ///< 视频帧位置
-};
-
-/**
- * @brief 音频帧数据结构，包含音频帧数据和相关信息。
- */
-struct AURORASTREAM_API AudioFrame {
-    unsinged char* data[8] = { nullptr }; ///< 音频帧数据数组
-    int linesize[8] = { 0 };              ///< 音频帧数据行大小数组
-    int nb_samples =  0;                  ///< 音频帧采样数
-    int sample_rate = 0;                  ///< 音频帧采样率
-    int channels = 0;                     ///< 音频帧通道数
-    int format = 0;                       ///< 音频帧格式
-    int64_t pts = 0;                      ///< 音频帧显示时间戳
-};
-
-/**
- * @brief Decoder 类是所有具体解码器实现的抽象基类。
- */
-class AURORASTREAM_API Decoder : public QObject
+Decoder::Decoder(QObject* parent)
+	: QObject(parent) ///< 调用父类构造函数
+    , m_isOpen(false) ///< 初始状态为未打开
+    , m_duration(0)   ///< 初始时长为0
+    , m_position(0)   ///< 初始位置为0
 {
-    Q_OBJECT
-public:
-    /**
-     * @brief 构造函数。
-     * @param parent QObject 父对象。
-     */
-    explicit Decoder(QObject* parent = nullptr);
+	qDebug() << "Decoder initialized";
+}
 
-    /**
-     * @brief 析构函数。
-     */
-    ~Decoder() override;
+/**
+ * @brief Decoder 类的析构函数
+ * @note 释放解码器资源
+ */
+Decoder::~Decoder() {
+    qDebug() << "Decoder destroyed";
+}
 
-    /**
-     * @brief 禁用拷贝和移动构造函数。
-     */
-    Decoder(const Decoder&) = delete;
+/**
+ * @brief 打开媒体文件
+ * @param uri 媒体文件的URI
+ * @return 是否成功打开
+ */
+bool Decoder::open(const QString &uri) {
+	// 检查是否已经打开。
+    if (m_isOpen) {
+        qWarning() << "Decoder is already open";
+        return false;
+    }
 
-    /**
-     * @brief 禁用拷贝和移动赋值运算符
-     */
-    Decoder& operator=(const Decoder&) = delete;
+    m_uri = uri;
+    m_isOpen = true;
+    qDebug() << "Opened media file:" << uri;
 
-    /**
-     * @brief 禁用移动构造函数
-     */
-    Decoder(Decoder&&) = delete;
+    return true;
+}
 
-    /**
-     * @brief 禁用移动赋值运算符
-     */
-    Decoder& operator=(Decoder&&) = delete;
+/**
+ * @brief 关闭媒体文件。
+ * @note 关闭媒体文件后，解码器将进入 Stopped 状态。
+ */
+void Decoder::close() {
+	// 检查是否已经打开。
+    if (!m_isOpen) {
+        qWarning() << "Decoder is not open";
+        return;
+    }
 
-    /**
-     * @brief 打开媒体文件
-     * @param uri 媒体文件路径
-     * @return 打开成功返回 true，失败返回 false
-     */
-    virtual bool open(const QString& uri) = 0;
+    m_isOpen = false;
+    m_duration = 0;
+    m_position = 0;
+    m_uri.clear();
 
-    /**
-     * @brief 关闭媒体文件
-	 */
-    virtual void close() = 0;
+	qDebug() << "Closed media file";
+}
 
-    /**
-	 * @brief 开始播放
-	 */
-    virtual void start() = 0;
+/**
+ * @brief 开始解码
+ * @note 开始解码后，解码器将进入 Playing 状态
+ */
+void Decoder::start() {
+	// 检查是否已经打开。
+    if (!m_isOpen) {
+        qWarning() << "Decoder is not open";
+        return;
+    }
 
-	/**
-	 * @brief 暂停播放
-     */
-    virtual void pause() = 0;
+    qDebug() << "Playback started";
+}
 
-    /**
-	 * @brief 停止播放
-	 */
-    virtual void stop() = 0;
+/**
+ * @brief 暂停解码
+ * @note 暂停解码后，解码器将进入 Paused 状态
+ */
+void Decoder::pause() {
+	// 检查是否已经打开。
+    if (!m_isOpen) {
+        qWarning() << "Decoder is not open";
+        return;
+    }
 
-    /**
-     * @brief 跳转到指定位置
-     * @param position 指定位置
-     */
-    virtual void seek(qint64 position) = 0;
+    qDebug() << "Playback paused";
+}
 
-    /**
-     * @brief 检查媒体文件是否打开
-     * @return 如果媒体文件已经打开则返回 true，否则返回 false
-     */
-    virtual bool isOpen() const = 0;
+/**
+ * @brief 停止解码
+ * @note 停止解码后，解码器将进入 Stopped 状态
+ */
+void Decoder::stop() {
+	// 检查是否已经打开。
+    if (!m_isOpen) {
+        qWarning() << "Decoder is not open";
+        return;
+    }
 
-    /**
-     * @brief 检查媒体文件是否正在播放
-     * @return 如果媒体文件正在播放则返回 true，否则返回 false
-     */
-    virtual bool isPlaying() const = 0;
+    qDebug() << "Playback stopped";
+}
 
-    /**
-     * @brief 检查媒体文件是否已经暂停
-     * @return 如果媒体文件已经暂停则返回 true，否则返回 false
-     */
-    virtual bool isPaused() const = 0;
 
-    /**
-     * @brief 检查媒体文件是否已经停止
-     * @return 如果媒体文件已经停止则返回 true，否则返回 false
-     */
-    virtual bool isStopped() const = 0;
+/**
+ * @brief 定位到指定位置
+ * @param position 定位位置
+ */
+void Decoder::seek(qint64 position) {
+	// 检查是否已经打开。
+    if (!m_isOpen) {
+        qWarning() << "Decoder is not open";
+        return;
+    }
 
-    /**
-     * @brief 获取媒体文件的总时长
-     * @return 媒体文件的总时长（毫秒）
-     */
-    virtual qint64 getDuration() const = 0;
+    m_position = position;
 
-    /**
-     * @brief 获取媒体文件的当前播放位置
-     * @return 媒体文件的当前播放位置（毫秒）
-     */
-    virtual qint64 getPosition() const = 0;
+    qDebug() << "Seek to position:" << position;
+}
 
-    /**
-     * @brief 获取媒体文件的视频宽度
-     * @return 媒体文件的视频宽度
-     */
-    virtual int getVideoWidth() const = 0;
+/**
+ * @brief 获取当前媒体是否已经打开。
+ * @return 当前媒体是否已经打开。
+ */
+bool Decoder::isOpen() const {
+    return m_isOpen;
+}
 
-    /**
-     * @brief 获取媒体文件的视频高度
-     * @return 媒体文件的视频高度
-     */
-    virtual int getVideoHeight() const = 0;
+/**
+ * @brief 获取当前媒体是否正在播放。
+ * @return 当前媒体是否正在播放。
+ */
+bool Decoder::isPlaying() const {
+    //
+}
 
-    /**
-     * @brief 获取媒体文件的视频帧率
-     * @return 媒体文件的视频帧率
-     */
-    virtual int getVideoFrameRate() const = 0;
+/**
+ * @brief 获取当前媒体是否已经暂停
+ * @return 当前媒体是否已经暂停
+ */
+bool Decoder::isPaused() const {
+    //
+}
 
-    /**
-     * @brief 获取媒体文件的音频采样率
-     * @return 媒体文件的音频采样率
-     */
-    virtual int getAudioSampleRate() const = 0;
+/**
+ * @brief 获取当前媒体是否已经停止
+ * @return 当前媒体是否已经停止
+ */
+bool Decoder::isStopped() const {
+    //
+}
 
-    /**
-     * @brief 获取媒体文件的音频通道数
-     * @return 媒体文件的音频通道数
-     */
-    virtual int getAudioChannels() const = 0;
+/**
+ * @brief 获取当前媒体的总时长
+ * @return 当前媒体的总时长
+ */
+qint64 Decoder::getDuration() const {
+    return m_duration;
+}
 
-signals:
-	/**
-     * @brief 视频帧就绪信号
-     * @param frame 视频帧数据
-     */
-    void videoFrameReady(const aurorastream::modules::media::decoder::VideoFrame& frame);
+/**
+ * @brief 获取当前媒体的当前位置
+ * @return 当前媒体的当前位置
+ */
+qint64 Decoder::getPosition() const {
+    return m_position;
+}
 
-    /**
-     * @brief 音频帧就绪信号
-     * @param frame 音频帧数据
-     */
-    void audioFrameReady(const aurorastream::modules::media::decoder::AudioFrame& frame);
+/**
+ * @brief 获取当前媒体的视频宽度
+ * @return 当前媒体的视频宽度
+ */
+int Decoder::getVideoWidth() const {
+    return m_videoWidth;
+}
 
-    /**
-     * @brief 媒体文件总时长改变信号
-     * @param duration 媒体文件的总时长（毫秒）
-     */
-    void durationChanged(qint64 duration);
+/**
+ * @brief 获取当前媒体的视频高度
+ * @return 当前媒体的视频高度
+ */
+int Decoder::getVideoHeight() const {
+    return m_videoHeight;
+}
 
-    /**
-     * @brief 媒体文件当前播放位置改变信号
-     * @param position 媒体文件的当前播放位置（毫秒）
-     */
-    void positionChanged(qint64 position);
+/**
+ * @brief 获取当前媒体的视频帧率
+ * @return 当前媒体的视频帧率
+ */
+double Decoder::getVideoFrameRate() const {
+    return m_videoFrameRate;
+}
 
-    /**
-     * @brief 媒体文件播放状态改变信号
-     * @param state 媒体文件的播放状态
-     */
-    void error(const QString& message);
+/**
+ * @brief 获取当前媒体的音频采样率
+ * @return 当前媒体的音频采样率
+ */
+int Decoder::getAudioSampleRate() const {
+    return m_audioSampleRate;
+}
 
-    /**
-     * @brief 媒体文件播放结束信号
-     */
-    void finished();
-
-protected:
-    QString m_uri;         ///< 媒体文件路径
-    qint64 m_duration = 0; ///< 总时长
-    qint64 m_position = 0; ///< 当前播放位置
-	bool m_isOpen = false; ///< 媒体文件是否已经打开
-};
+/**
+ * @brief 获取当前媒体的音频通道数
+ * @return 当前媒体的音频通道数
+ */
+int Decoder::getAudioChannels() const {
+    return m_audioChannels;
+}
 
 } // namespace decoder
 } // namespace media
 } // namespace modules
 } // namespace aurorastream
-
-#endif // AURORASTREAM_MODULES_MEDIA_DECODER_DECODER_H
