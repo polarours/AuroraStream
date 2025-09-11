@@ -13,6 +13,7 @@
 #ifndef AURORASTREAM_H
 #define AURORASTREAM_H
 
+// --- 1、库版本信息定义 ---
 /**
  * @defgroup versioning aurorastream 版本信息
  * @{
@@ -48,14 +49,11 @@
 
 /** @} */ // end of versioning group
 
+// --- 2、库导出/导入宏定义 ---
 /**
  * @defgroup build_config aurorastream 构建配置
  * @{
  */
-
-// --- 库导出/导入宏定义 ---
-// 用于支持 Windows DLL 构建。对于静态库或跨平台库，这是标准做法。
-
 // 如果定义了 AURORASTREAM_STATIC_LIB，则所有符号都是静态链接的。
 #if defined(AURORASTREAM_STATIC_LIB)
 #  define AURORASTREAM_API // 静态库，无需特殊声明
@@ -80,10 +78,25 @@
 
 /** @} */ // end of build_config group
 
-#include "core/MediaPlayer.h"    // 媒体播放器核心接口
-#include "utils/Logger.h"        // 日志系统
-#include "utils/ConfigManager.h" // 配置管理
+// --- 3. 包含核心模块的公共头文件 ---
+/**
+ * @defgroup core_modules AuroraStream 核心模块
+ * @{
+ */
 
+/**
+ * @brief 包含核心媒体播放器接口。
+ *
+ * MediaPlayer 是 AuroraStream 框架的核心，负责管理播放状态、
+ * 协调解码、渲染和用户交互。
+ */
+#include "aurorastream/core/MediaPlayer.h"
+
+#include "utils/Logger.h"
+#include "utils/ConfigManager.h"
+
+
+// --- 4. 定义主命名空间 ---
 /**
  * @namespace aurorastream
  * @brief aurorastream 库的根命名空间。
