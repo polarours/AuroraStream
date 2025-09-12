@@ -19,6 +19,7 @@
 #include <memory>
 
 #include "aurorastream/AuroraStream.h"
+#include "../decoder/Decoder.h"
 
 namespace aurorastream {
 namespace modules {
@@ -32,107 +33,95 @@ namespace renderer {
  * @brief AudioRenderer 是音频渲染器模块的抽象基类
  * 定义了音频渲染器的接口
  */
-class  AURORASTREAM_API AudioRenderer  : public QObject
+class AURORASTREAM_API AudioRenderer : public QObject
 {
     Q_OBJECT
+    Q_PROPERTY(bool initialized READ isInitialized NOTIFY initializedChanged)
+    Q_PROPERTY(float volume READ getVolume WRITE setVolume NOTIFY volumeChanged)
+    Q_PROPERTY(bool muted READ isMute WRITE setMute NOTIFY muteChanged)
 
 public:
-    /**
-     * @brief 构造函数
-     * @param parent 父对象
-     */
-    explicit AudioRenderer(QObject *parent = nullptr);
+    enum class State {
+        Stopped,
+        Playing,
+        Paused,
+        Error
+    };
+    Q_ENUM(State)
 
-    /**
-     * @brief 析构函数
-     */
+    explicit AudioRenderer(QObject* parent = nullptr);
     ~AudioRenderer() override;
 
-    // --- 禁用拷贝和移动 ---
+    // 禁用拷贝和移动
     AudioRenderer(const AudioRenderer&) = delete;
     AudioRenderer& operator=(const AudioRenderer&) = delete;
     AudioRenderer(AudioRenderer&&) = delete;
     AudioRenderer& operator=(AudioRenderer&&) = delete;
 
+    // 核心接口
     /**
-     * @brief 初始化音频渲染器
-     * @param sampleRate 采样率
-     * @param channels 声道数
-     * @param format 音频格式
-     * @return 初始化是否成功
+     * @brief 初始化音频设备
+     * @param sampleRate 采样率 (48000, 44100等)
+     * @param channels 声道数 (1-单声道, 2-立体声)
+     * @param format 音频格式 (SDL_AUDIO_*格式常量)
+     * @return 初始化成功返回true
      */
     virtual bool initialize(int sampleRate, int channels, int format) = 0;
 
-    /**
-     * @brief 开始播放音频
-     */
+    /// 开始播放音频数据
     virtual void play() = 0;
 
-    /**
-     * @brief 暂停播放音频
-     */
+    /// 暂停播放(保留音频数据)
     virtual void pause() = 0;
 
-    /**
-     * @brief 停止播放音频
-     */
+    /// 停止播放(清空音频数据)
     virtual void stop() = 0;
 
     /**
-     * @brief 加入音频帧到播放队列
-     * @param frame 音频帧
+     * @brief 添加音频帧到播放队列
+     * @param frame 包含PCM数据的音频帧
+     * @note 线程安全操作
      */
     virtual void queueAudio(const aurorastream::modules::media::decoder::AudioFrame& frame) = 0;
 
-    /**
-     * @brief 设置音量
-     * @param volume 音量值
-     */
-    virtual void setVolume(float volume) = 0;
-
-    /**
-     * @brief 设置静音
-     * @param mute 是否静音
-     */
-    virtual void setMute(bool mute) = 0;
-
-    /**
-     * @brief 清理音频渲染器
-     */
+    /// 释放所有音频资源
     virtual void cleanup() = 0;
 
-    /**
-     * @brief 检查音频渲染器是否已初始化
-     * @return 是否已初始化, true 表示已初始化
-     */
+    /// 检查音频设备是否已初始化
     virtual bool isInitialized() const = 0;
 
-signals:
-    /**
-     * @brief 音频渲染器状态发生变化时发出的信号
-     * @param newState 新的状态
-     */
-    void stateChanged(aurorastream::modules::media::renderer::AudioRenderer::State newState);
+    /// 支持的音频格式枚举
+    enum AudioFormat {
+        AUDIO_S8 = 0x8008,
+        AUDIO_U8 = 0x0008,
+        AUDIO_S16LSB = 0x8010,
+        AUDIO_S16MSB = 0x9010,
+        AUDIO_S32LSB = 0x8020
+    };
+    Q_ENUM(AudioFormat)
 
-    /**
-     * @brief 音频渲染器发生错误时发出的信号
-     * @param error 错误信息
-     */
+    // 音频控制
+    virtual void setVolume(float volume);
+    virtual float getVolume() const;
+    virtual void setMute(bool mute);
+    virtual bool isMute() const;
+
+signals:
+    void stateChanged(State newState);
     void errorOccurred(const QString& error);
     void positionChanged(int64_t position);
-    void finished();
-    void playing();
-    void paused();
-    void stopped();
-    void initialized();
+    void volumeChanged(float volume);
+    void muteChanged(bool muted);
+    void initializedChanged(bool initialized);
 
 protected:
-    int m_sampleRate{0};       ///< 采样率
-    int m_channels{0};         ///< 声道数
-    int m_format{0};           ///< 音频格式
-    float m_volume{1.0f};      ///< 音量
-    bool m_mute{false};        ///< 是否静音
-    bool m_initialized{false}; ///< 是否已初始化
+    int m_sampleRate {0};
+    int m_channels {0};
+    int m_format {0};
+    float m_volume {1.0f};
+    bool m_mute {false};
+    bool m_initialized {false};
+    State m_state {State::Stopped};
 };
 
 } // namespace renderer

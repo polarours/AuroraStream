@@ -18,9 +18,12 @@
 #include <QPushButton>
 #include <QSlider>
 #include <QLabel>
+#include <QLineEdit>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <memory>
+
+#include "aurorastream/AuroraStream.h"
 
 // --- 前置声明 ---
 QT_BEGIN_NAMESPACE
@@ -117,7 +120,7 @@ private slots:
      * @brief 媒体状态改变槽函数。
      * @param state 当前媒体状态。
      */
-    void onMediaStateChanged(aurorastream::core::MediaPlayerState state);
+    void onMediaStateChanged(aurorastream::MediaState state);
 
     /**
      * @brief 媒体总时长改变槽函数。
@@ -130,6 +133,17 @@ private slots:
      * @param position 当前媒体位置。
      */
     void onPositionChanged(qint64 position);
+
+    /**
+     * @brief RTMP连接按钮点击槽函数
+     */
+    void onConnectClicked();
+
+    /**
+     * @brief 处理RTMP流打开事件
+     * @param url RTMP流地址
+     */
+    void onRtmpOpened(const QString& url);
 
 protected:
     /**
@@ -163,6 +177,11 @@ private:
     void setupUI();
 
     /**
+     * @brief 连接信号和槽
+     */
+    void connectSignals();
+
+    /**
      * @brief 初始化窗口菜单。
      */
     void setupMenus();
@@ -191,12 +210,15 @@ private:
 
     aurorastream::core::MediaPlayer* m_mediaPlayer; ///< 核心媒体播放器指针
     QString            m_currentFile;               ///< 当前打开的媒体文件路径
+    QString            m_currentRtmpUrl;            ///< 当前RTMP地址
 
     // 控制面板组件
     QPushButton*       m_openButton;                ///< 打开按钮
     QPushButton*       m_playButton;                ///< 播放按钮
     QPushButton*       m_pauseButton;               ///< 暂停按钮
     QPushButton*       m_stopButton;                ///< 停止按钮
+    QPushButton*       m_connectButton;             ///< RTMP连接按钮
+    QLineEdit*         m_rtmpUrlEdit;              ///< RTMP地址输入框
     QSlider*           m_seekSlider;                ///< 进度条
     QSlider*           m_volumeSlider;              ///< 音量条
     QLabel*           m_timeLabel;                 ///< 时间标签
@@ -211,4 +233,4 @@ private:
 } // namespace modules
 } // namespace aurorastream
 
-#endef // AURORASTREAM_MODULES_UI_MAINWINDOW_H
+#endif // AURORASTREAM_MODULES_UI_MAINWINDOW_H

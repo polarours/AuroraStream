@@ -1,15 +1,11 @@
 # UI Module Configuration
 
 set(UI_MODULE_HEADERS
-        include/aurorastream/modules/ui/MainWindow.h
-        include/aurorastream/modules/ui/VideoWidget.h
-        include/aurorastream/modules/ui/ControlPanel.h
+        ${ROOT_DIR}/include/aurorastream/modules/ui/MainWindow.h
 )
 
 set(UI_MODULE_SOURCES
-        src/modules/ui/MainWindow.cpp
-        src/modules/ui/VideoWidget.cpp
-        src/modules/ui/ControlPanel.cpp
+        MainWindow.cpp
 )
 
 # 添加 UIModule 模块库
@@ -18,22 +14,20 @@ add_library(UIModule STATIC
         ${UI_MODULE_SOURCES}
 )
 
-# 设置 UIModule 模块库的包含路径
+# 设置 UIModule 模块库的包含路径和链接
 target_include_directories(UIModule
+        PUBLIC
         $<BUILD_INTERFACE:${ROOT_DIR}/include/aurorastream/modules/ui>
+        PRIVATE
+        ${ROOT_DIR}/include
+        ${Qt6Widgets_INCLUDE_DIRS}
+        ${Qt6Core_INCLUDE_DIRS}
 )
 
-# 链接 UIModule 模块库
 target_link_libraries(UIModule
         PRIVATE
         Qt6::Widgets
         Qt6::Core
+        CoreModule
         MediaModule
-)
-
-# 设置包含目录
-target_include_directories(UIModule PRIVATE
-        ${ROOT_DIR}/include
-        ${Qt6Widgets_INCLUDE_DIRS}
-        ${Qt6Core_INCLUDE_DIRS}
 )

@@ -1,0 +1,151 @@
+# 运行时依赖部署脚本
+message(STATUS "Deploying runtime dependencies...")
+
+# 设置可执行文件目录（在CMake脚本模式下无法使用get_target_property）
+set(EXE_DIR "${CMAKE_BINARY_DIR}/bin")
+message(STATUS "Target executable directory: ${EXE_DIR}")
+
+# 创建platforms目录
+file(MAKE_DIRECTORY ${EXE_DIR}/platforms)
+
+# 尝试自动查找并复制Qt DLLs
+message(STATUS "Attempting to find Qt installation...")
+
+# 尝试通过环境变量查找Qt
+set(QT6_DIR "$ENV{QT_DIR}")
+if(NOT QT6_DIR)
+    # 尝试常见Qt安装路径
+    set(POSSIBLE_QT_PATHS
+        "C:/Qt/6.8.1/mingw_64"
+        "C:/Qt/6.6.0/mingw_64" 
+        "C:/Qt/6.5.0/mingw_64"
+        "$ENV{HOMEDRIVE}$ENV{HOMEPATH}/Qt/6.8.1/mingw_64"
+        "$ENV{HOMEDRIVE}$ENV{HOMEPATH}/Qt/6.6.0/mingw_64"
+    )
+    
+    foreach(QT_PATH ${POSSIBLE_QT_PATHS})
+        if(EXISTS "${QT_PATH}/bin/Qt6Core.dll")
+            set(QT6_DIR "${QT_PATH}")
+            break()
+        endif()
+    endforeach()
+endif()
+
+if(QT6_DIR AND EXISTS "${QT6_DIR}/bin/Qt6Core.dll")
+    message(STATUS "Found Qt installation at: ${QT6_DIR}")
+    
+    # 复制核心Qt DLLs
+    set(QT_DLLS
+        Qt6Core.dll
+        Qt6Gui.dll
+        Qt6Widgets.dll
+    )
+    
+    set(COPIED_QT_DLLS 0)
+    foreach(DLL ${QT_DLLS})
+        set(DLL_PATH "${QT6_DIR}/bin/${DLL}")
+        if(EXISTS ${DLL_PATH})
+            file(COPY ${DLL_PATH} DESTINATION ${EXE_DIR})
+            message(STATUS "Copied Qt DLL: ${DLL}")
+            math(EXPR COPIED_QT_DLLS "${COPIED_QT_DLLS} + 1")
+        else()
+            message(WARNING "Qt DLL not found: ${DLL_PATH}")
+        endif()
+    endforeach()
+    
+    # 复制平台插件
+    set(PLUGIN_PATH "${QT6_DIR}/plugins/platforms/qwindows.dll")
+    if(EXISTS ${PLUGIN_PATH})
+        if(NOT EXISTS "${EXE_DIR}/platforms")
+            file(MAKE_DIRECTORY "${EXE_DIR}/platforms")
+        endif()
+        file(COPY ${PLUGIN_PATH} DESTINATION "${EXE_DIR}/platforms")
+        message(STATUS "Copied Qt platform plugin: qwindows.dll")
+    else()
+        message(WARNING "Qt platform plugin not found: ${PLUGIN_PATH}")
+    endif()
+    
+    # 复制ICU DLLs (如果存在)
+    file(GLOB ICU_DLLS "${QT6_DIR}/bin/icu*.dll")
+    if(ICU_DLLS)
+        file(COPY ${ICU_DLLS} DESTINATION ${EXE_DIR})
+        message(STATUS "Copied ICU DLLs")
+    endif()
+    
+    if(COPIED_QT_DLLS EQUAL 3)
+        message(STATUS "Qt runtime deployment completed successfully")
+    else()
+        message(WARNING "Not all Qt DLLs were copied successfully")
+    endif()
+else()
+    message(WARNING "Qt installation not found automatically")
+    message(STATUS "Please set QT_DIR environment variable to your Qt installation path")
+    message(STATUS "Example: set QT_DIR=C:\\Qt\\6.8.1\\mingw_64")
+endif()
+
+# 检查外部依赖目录是否有DLL文件
+message(STATUS "Checking external dependencies...")
+
+set(LOCAL_FFMPEG_DIR "${CMAKE_SOURCE_DIR}/external/ffmpeg")
+set(LOCAL_SDL2_DIR "${CMAKE_SOURCE_DIR}/external/sdl2")
+
+# 检查FFmpeg DLLs (优先检查bin目录，然后检查lib目录)
+if(EXISTS "${LOCAL_FFMPEG_DIR}")
+    # 首先检查bin目录
+    file(GLOB FFMPEG_DLLS_BIN "${LOCAL_FFMPEG_DIR}/bin/*.dll")
+    if(FFMPEG_DLLS_BIN)
+        foreach(DLL ${FFMPEG_DLLS_BIN})
+            get_filename_component(DLL_NAME ${DLL} NAME)
+            file(COPY ${DLL} DESTINATION ${EXE_DIR})
+            message(STATUS "Copied FFmpeg DLL from bin/: ${DLL_NAME}")
+        endforeach()
+    else()
+        # 如果没有bin目录的DLL，检查lib目录
+        file(GLOB FFMPEG_DLLS_LIB "${LOCAL_FFMPEG_DIR}/lib/*.dll")
+        if(FFMPEG_DLLS_LIB)
+            foreach(DLL ${FFMPEG_DLLS_LIB})
+                get_filename_component(DLL_NAME ${DLL} NAME)
+                file(COPY ${DLL} DESTINATION ${EXE_DIR})
+                message(STATUS "Copied FFmpeg DLL from lib/: ${DLL_NAME}")
+            endforeach()
+        else()
+            message(STATUS "No FFmpeg DLLs found in external directory")
+        endif()
+    endif()
+else()
+    message(STATUS "FFmpeg external directory not found: ${LOCAL_FFMPEG_DIR}")
+endif()
+
+# 检查SDL2 DLL
+if(EXISTS "${LOCAL_SDL2_DIR}")
+    file(GLOB SDL2_DLLS "${LOCAL_SDL2_DIR}/lib/*.dll")
+    if(SDL2_DLLS)
+        foreach(DLL ${SDL2_DLLS})
+            get_filename_component(DLL_NAME ${DLL} NAME)
+            file(COPY ${DLL} DESTINATION ${EXE_DIR})
+            message(STATUS "Copied SDL2 DLL: ${DLL_NAME}")
+        endforeach()
+    else()
+        message(STATUS "No SDL2 DLLs found in external directory")
+    endif()
+else()
+    message(STATUS "SDL2 external directory not found: ${LOCAL_SDL2_DIR}")
+endif()
+
+# 部署完成提示
+message("")
+message("=== 运行时依赖部署完成 ===")
+message("部署目录: ${EXE_DIR}")
+message("")
+message("如果应用程序仍然无法运行，请检查以下依赖:")
+message("1. FFmpeg DLLs (avcodec-62.dll, avformat-62.dll, avutil-60.dll, swscale-9.dll, swresample-4.dll)")
+message("2. SDL2.dll")
+message("3. MinGW运行时DLLs (libstdc++-6.dll, libgcc_s_seh-1.dll, libwinpthread-1.dll)")
+message("")
+message("这些文件可以从以下位置获取:")
+message("- FFmpeg: https://ffmpeg.org/download.html")
+message("- SDL2: https://www.libsdl.org/download-2.0.php")
+message("- MinGW运行时: MSYS2安装目录的mingw64\\bin文件夹")
+message("")
+message("将缺失的DLL文件复制到部署目录即可。")
+message("======================================")

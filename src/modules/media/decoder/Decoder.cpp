@@ -9,219 +9,222 @@
  * @date   : 2025/08/25
  ********************************************************************************/
 
-#include <QDebug>
-
 #include "aurorastream/modules/media/decoder/Decoder.h"
+#include <stdexcept>
+#include <iostream>
+#include <QtCore/QDebug>
+
+extern "C" {
+#include "../../../external/ffmpeg/include/libavcodec/avcodec.h"
+#include "../../../external/ffmpeg/include/libavformat/avformat.h"
+#include "../../../external/ffmpeg/include/libavutil/hwcontext.h"
+#include "../../../external/ffmpeg/include/libavutil/error.h"
+}
 
 namespace aurorastream {
 namespace modules {
 namespace media {
 namespace decoder {
-/**
- * @brief Decoder 类的构造函数。
- * @param parent 父对象。
- * @note 初始化解码器状态。
- */
-Decoder::Decoder(QObject* parent)
-	: QObject(parent) ///< 调用父类构造函数
-    , m_isOpen(false) ///< 初始状态为未打开
-    , m_duration(0)   ///< 初始时长为0
-    , m_position(0)   ///< 初始位置为0
-{
-	qDebug() << "Decoder initialized";
-}
 
-/**
- * @brief Decoder 类的析构函数
- * @note 释放解码器资源
- */
-Decoder::~Decoder() {
-    qDebug() << "Decoder destroyed";
-}
+class Decoder::Impl {
+public:
+    Impl(Type type) : type_(type) {
+        std::cout << "Decoder initialized" << std::endl;
+    }
 
-/**
- * @brief 打开媒体文件
- * @param uri 媒体文件的URI
- * @return 是否成功打开
- */
-bool Decoder::open(const QString &uri) {
-	// 检查是否已经打开。
-    if (m_isOpen) {
-        qWarning() << "Decoder is already open";
+    ~Impl() {
+        std::cout << "Decoder destroyed" << std::endl;
+        cleanup();
+    }
+
+    bool init(AVCodecParameters* params) {
+        if (!params) {
+            std::cerr << "Invalid codec parameters" << std::endl;
+            return false;
+        }
+
+        const AVCodec* codec = avcodec_find_decoder(params->codec_id);
+        if (!codec) {
+            std::cerr << "Unsupported codec" << std::endl;
+            return false;
+        }
+
+        codecCtx_ = avcodec_alloc_context3(codec);
+        if (!codecCtx_) {
+            std::cerr << "Failed to allocate codec context" << std::endl;
+            return false;
+        }
+
+        if (avcodec_parameters_to_context(codecCtx_, params) < 0) {
+            std::cerr << "Failed to copy codec parameters" << std::endl;
+            return false;
+        }
+
+        if (avcodec_open2(codecCtx_, codec, nullptr) < 0) {
+            std::cerr << "Failed to open codec" << std::endl;
+            return false;
+        }
+
+        return true;
+    }
+
+    bool sendPacket(AVPacket* packet) {
+        if (!codecCtx_) return false;
+
+        int ret = avcodec_send_packet(codecCtx_, packet);
+        if (ret < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            std::cerr << "Error sending packet: " << errbuf << std::endl;
+            return false;
+        }
+        return true;
+    }
+
+    bool receiveFrame(AVFrame* frame) {
+        if (!codecCtx_) return false;
+
+        int ret = avcodec_receive_frame(codecCtx_, frame);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF) {
+            return false;
+        } else if (ret < 0) {
+            char errbuf[AV_ERROR_MAX_STRING_SIZE];
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            std::cerr << "Error receiving frame: " << errbuf << std::endl;
+            return false;
+        }
+
+        stats_.framesDecoded++;
+        return true;
+    }
+
+    void flush() {
+        if (codecCtx_) {
+            avcodec_flush_buffers(codecCtx_);
+        }
+    }
+
+    bool enableHardwareAccel(const std::string& deviceType) {
+        // 硬件加速实现占位
         return false;
     }
 
-    m_uri = uri;
-    m_isOpen = true;
-    qDebug() << "Opened media file:" << uri;
+    Statistics getStats() const {
+        return stats_;
+    }
 
+private:
+    Type type_;
+    AVCodecContext* codecCtx_ = nullptr;
+    Statistics stats_;
+
+    void cleanup() {
+        if (codecCtx_) {
+            avcodec_free_context(&codecCtx_);
+        }
+    }
+};
+
+Decoder::Decoder(Type type) : impl_(std::make_unique<Impl>(type)) {}
+
+Decoder::~Decoder() {
+    // 析构函数实现
+}
+
+bool Decoder::init(AVCodecParameters* params) { return impl_->init(params); }
+bool Decoder::sendPacket(AVPacket* packet) { return impl_->sendPacket(packet); }
+bool Decoder::receiveFrame(AVFrame* frame) { return impl_->receiveFrame(frame); }
+void Decoder::flush() { impl_->flush(); }
+Decoder::Statistics Decoder::getStatistics() const { return impl_->getStats(); }
+bool Decoder::enableHardwareAcceleration(const std::string& deviceType) {
+    return impl_->enableHardwareAccel(deviceType);
+}
+
+// 媒体控制接口实现
+bool Decoder::open(const QString& uri) {
+    qDebug() << "Opening media file:" << uri;
     return true;
 }
 
-/**
- * @brief 关闭媒体文件。
- * @note 关闭媒体文件后，解码器将进入 Stopped 状态。
- */
 void Decoder::close() {
-	// 检查是否已经打开。
-    if (!m_isOpen) {
-        qWarning() << "Decoder is not open";
-        return;
-    }
-
-    m_isOpen = false;
-    m_duration = 0;
-    m_position = 0;
-    m_uri.clear();
-
-	qDebug() << "Closed media file";
+    qDebug() << "Closing media file";
 }
 
-/**
- * @brief 开始解码
- * @note 开始解码后，解码器将进入 Playing 状态
- */
 void Decoder::start() {
-	// 检查是否已经打开。
-    if (!m_isOpen) {
-        qWarning() << "Decoder is not open";
-        return;
-    }
-
-    qDebug() << "Playback started";
+    qDebug() << "Starting playback";
 }
 
-/**
- * @brief 暂停解码
- * @note 暂停解码后，解码器将进入 Paused 状态
- */
 void Decoder::pause() {
-	// 检查是否已经打开。
-    if (!m_isOpen) {
-        qWarning() << "Decoder is not open";
-        return;
-    }
-
-    qDebug() << "Playback paused";
+    qDebug() << "Pausing playback";
 }
 
-/**
- * @brief 停止解码
- * @note 停止解码后，解码器将进入 Stopped 状态
- */
 void Decoder::stop() {
-	// 检查是否已经打开。
-    if (!m_isOpen) {
-        qWarning() << "Decoder is not open";
-        return;
-    }
-
-    qDebug() << "Playback stopped";
+    qDebug() << "Stopping playback";
 }
 
-
-/**
- * @brief 定位到指定位置
- * @param position 定位位置
- */
-void Decoder::seek(qint64 position) {
-	// 检查是否已经打开。
-    if (!m_isOpen) {
-        qWarning() << "Decoder is not open";
-        return;
-    }
-
-    m_position = position;
-
-    qDebug() << "Seek to position:" << position;
+bool Decoder::seek(qint64 position) {
+    qDebug() << "Seeking to position:" << position;
+    return true;
 }
 
-/**
- * @brief 获取当前媒体是否已经打开。
- * @return 当前媒体是否已经打开。
- */
+// 状态查询实现
 bool Decoder::isOpen() const {
-    return m_isOpen;
+    return false;
 }
 
-/**
- * @brief 获取当前媒体是否正在播放。
- * @return 当前媒体是否正在播放。
- */
 bool Decoder::isPlaying() const {
-    //
+    return false;
 }
 
-/**
- * @brief 获取当前媒体是否已经暂停
- * @return 当前媒体是否已经暂停
- */
 bool Decoder::isPaused() const {
-    //
+    return false;
 }
 
-/**
- * @brief 获取当前媒体是否已经停止
- * @return 当前媒体是否已经停止
- */
 bool Decoder::isStopped() const {
-    //
+    return false;
 }
 
-/**
- * @brief 获取当前媒体的总时长
- * @return 当前媒体的总时长
- */
 qint64 Decoder::getDuration() const {
-    return m_duration;
+    return 0;
 }
 
-/**
- * @brief 获取当前媒体的当前位置
- * @return 当前媒体的当前位置
- */
 qint64 Decoder::getPosition() const {
-    return m_position;
+    return 0;
 }
 
-/**
- * @brief 获取当前媒体的视频宽度
- * @return 当前媒体的视频宽度
- */
+// 媒体信息实现
 int Decoder::getVideoWidth() const {
-    return m_videoWidth;
+    return 0;
 }
 
-/**
- * @brief 获取当前媒体的视频高度
- * @return 当前媒体的视频高度
- */
 int Decoder::getVideoHeight() const {
-    return m_videoHeight;
+    return 0;
 }
 
-/**
- * @brief 获取当前媒体的视频帧率
- * @return 当前媒体的视频帧率
- */
 double Decoder::getVideoFrameRate() const {
-    return m_videoFrameRate;
+    return 0;
 }
 
-/**
- * @brief 获取当前媒体的音频采样率
- * @return 当前媒体的音频采样率
- */
 int Decoder::getAudioSampleRate() const {
-    return m_audioSampleRate;
+    return 0;
 }
 
-/**
- * @brief 获取当前媒体的音频通道数
- * @return 当前媒体的音频通道数
- */
 int Decoder::getAudioChannels() const {
-    return m_audioChannels;
+    return 0;
+}
+
+// 媒体信息查询实现
+bool Decoder::hasVideo() const {
+    return true; // 简单实现，返回true
+}
+
+bool Decoder::hasAudio() const {
+    return true; // 简单实现，返回true
+}
+
+std::shared_ptr<VideoFrame> Decoder::getNextFrame() {
+    // 简单实现，返回空指针
+    return nullptr;
 }
 
 } // namespace decoder

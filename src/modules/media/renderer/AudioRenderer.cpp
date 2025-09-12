@@ -1,99 +1,130 @@
-/********************************************************************************
- * @file   : AudioRenderer.cpp
- * @brief  : AuroraStream 音频渲染器模块的实现
- *
- * 本文件实现了 AudioRenderer 类，它提供了音频渲染器的基本功能
- * 包括初始化、播放控制、状态管理等
- *
- * @author : polarours
- * @date   : 2025/08/25
- ********************************************************************************/
-
 #include "aurorastream/modules/media/renderer/AudioRenderer.h"
+#include <SDL2/SDL.h>
+#include <QDebug>
+#include <mutex>
 
 namespace aurorastream {
 namespace modules {
 namespace media {
 namespace renderer {
 
-/**
- * @brief AudioRenderer 构造函数
- * @note 初始化所有成员变量
- */
-AudioRenderer::AudioRenderer()
-    : m_initialized(false) ///< 初始状态为未初始化
-    , m_sampleRate(0)      ///< 初始状态为0
-    , m_channels(0)        ///< 初始状态为0
+class SDLAudioRenderer : public AudioRenderer {
+public:
+    SDLAudioRenderer(QObject* parent = nullptr);
+    ~SDLAudioRenderer() override;
+
+    bool initialize(int sampleRate, int channels, int format) override;
+    void play() override;
+    void pause() override;
+    void stop() override;
+    void queueAudio(const decoder::AudioFrame& frame) override;
+    void cleanup() override;
+    bool isInitialized() const override;
+
+private:
+    static void audioCallback(void* userdata, Uint8* stream, int len);
+
+    SDL_AudioDeviceID m_audioDevice = 0;
+    std::mutex m_audioMutex;
+    std::vector<uint8_t> m_audioBuffer;
+};
+
+SDLAudioRenderer::SDLAudioRenderer(QObject* parent) :
+    AudioRenderer(parent)
 {
-    // 输出创建日志
-    qDebug() << "AudioRenderer created";
+    if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
+        qCritical() << "SDL audio init failed:" << SDL_GetError();
+    }
 }
 
-/**
- * @brief 析构函数，释放所有资源
- * @note 调用 cleanup() 释放所有资源
- */
-AudioRenderer::~AudioRenderer() {
+SDLAudioRenderer::~SDLAudioRenderer() {
     cleanup();
-
-    // 输出销毁日志
-    qDebug() << "AudioRenderer destroyed";
 }
 
-bool AudioRenderer::initialize(int sampleRate, int channels) {
-    m_sampleRate = sampleRate;
-    m_channels = channels;
+bool SDLAudioRenderer::initialize(int sampleRate, int channels, int format) {
+    if (m_initialized) return true;
+
+    SDL_AudioSpec desired, obtained;
+    SDL_zero(desired);
+
+    desired.freq = sampleRate;
+    desired.channels = channels;
+    desired.format = AUDIO_S16SYS;
+    desired.samples = 4096;
+    desired.callback = audioCallback;
+    desired.userdata = this;
+
+    m_audioDevice = SDL_OpenAudioDevice(nullptr, 0, &desired, &obtained, 0);
+    if (m_audioDevice == 0) {
+        qCritical() << "Open audio device failed:" << SDL_GetError();
+        return false;
+    }
+
+    m_sampleRate = obtained.freq;
+    m_channels = obtained.channels;
+    m_format = obtained.format;
     m_initialized = true;
     return true;
 }
 
-
-void AudioRenderer::play() {
-    // TODO: 实现播放逻辑
-    // Default implementation, should be overridden
+void SDLAudioRenderer::play() {
+    if (!m_initialized) return;
+    SDL_PauseAudioDevice(m_audioDevice, 0);
+    m_state = State::Playing;
+    emit stateChanged(m_state);
 }
 
-void AudioRenderer::pause() {
-    // TODO: 实现暂停逻辑
-    // Default implementation, should be overridden
+void SDLAudioRenderer::pause() {
+    if (!m_initialized) return;
+    SDL_PauseAudioDevice(m_audioDevice, 1);
+    m_state = State::Paused;
+    emit stateChanged(m_state);
 }
 
-void AudioRenderer::stop() {
-    // TODO: 实现停止逻辑
-    // Default implementation, should be overridden
+void SDLAudioRenderer::stop() {
+    if (!m_initialized) return;
+    SDL_PauseAudioDevice(m_audioDevice, 1);
+    std::lock_guard<std::mutex> lock(m_audioMutex);
+    m_audioBuffer.clear();
+    m_state = State::Stopped;
+    emit stateChanged(m_state);
 }
 
-void AudioRenderer::setVolume(float volume) {
-    // TODO: 实现设置音量逻辑
-    // Default implementation, should be overridden
+void SDLAudioRenderer::queueAudio(const decoder::AudioFrame& frame) {
+    if (!m_initialized) return;
+
+    std::lock_guard<std::mutex> lock(m_audioMutex);
+    // 修复向量插入语法
+    size_t dataSize = frame.samples * m_channels * 2; // 假设16位样本
+    m_audioBuffer.insert(m_audioBuffer.end(),
+                        frame.data[0],
+                        frame.data[0] + dataSize);
 }
 
-float AudioRenderer::getVolume() const {
-    // TODO: 实现获取音量逻辑
-    return 1.0f; // Default implementation, should be overridden
-}
-
-void AudioRenderer::setMute(bool mute) {
-    // TODO: 实现设置静音逻辑
-    // Default implementation, should be overridden
-}
-
-bool AudioRenderer::isMute() const {
-    // TODO: 实现获取静音状态逻辑
-    return false; // Default implementation, should be overridden
-}
-
-void AudioRenderer::render(const aurorastream::modules::media::decoder::AudioFrame& frame) {
-    // TODO: 实现渲染逻辑
-    // Default implementation, should be overridden
-}
-
-void AudioRenderer::cleanup() {
+void SDLAudioRenderer::cleanup() {
+    if (m_audioDevice) {
+        SDL_CloseAudioDevice(m_audioDevice);
+        m_audioDevice = 0;
+    }
     m_initialized = false;
 }
 
-bool AudioRenderer::isInitialized() const {
+bool SDLAudioRenderer::isInitialized() const {
     return m_initialized;
+}
+
+void SDLAudioRenderer::audioCallback(void* userdata, Uint8* stream, int len) {
+    SDLAudioRenderer* renderer = static_cast<SDLAudioRenderer*>(userdata);
+    std::lock_guard<std::mutex> lock(renderer->m_audioMutex);
+
+    size_t copySize = std::min(renderer->m_audioBuffer.size(), static_cast<size_t>(len));
+    if (copySize > 0) {
+        memcpy(stream, renderer->m_audioBuffer.data(), copySize);
+        renderer->m_audioBuffer.erase(renderer->m_audioBuffer.begin(),
+                                   renderer->m_audioBuffer.begin() + copySize);
+    } else {
+        memset(stream, 0, len);
+    }
 }
 
 } // namespace renderer

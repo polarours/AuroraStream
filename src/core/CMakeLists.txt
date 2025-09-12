@@ -22,10 +22,12 @@ target_include_directories(CoreModule PUBLIC
 
 target_include_directories(CoreModule PRIVATE
         ${ROOT_DIR}/include
+        ${FFMPEG_INCLUDE_DIRS}
 )
 
 # 链接库
 target_link_libraries(CoreModule
         PRIVATE
         Qt6::Core
+        ${FFMPEG_LIBRARIES}
 )

@@ -59,7 +59,7 @@ void MainWindow::setMediaPlayer(aurorastream::core::MediaPlayer* player)
         connect(m_mediaPlayer, &core::MediaPlayer::stateChanged, this, &MainWindow::onMediaStateChanged);
         connect(m_mediaPlayer, &core::MediaPlayer::durationChanged, this, &MainWindow::onDurationChanged);
         connect(m_mediaPlayer, &core::MediaPlayer::positionChanged, this, &MainWindow::onPositionChanged);
-        connect(m_mediaPlayer, &core::MediaPlayer::errorOccurred, this, &MainWindow::onError);
+        connect(m_mediaPlayer, &core::MediaPlayer::error, this, &MainWindow::onError);
     }
 }
 
@@ -88,6 +88,10 @@ void MainWindow::setupUI()
     m_playButton = new QPushButton("播放", controlPanel);
     m_pauseButton = new QPushButton("暂停", controlPanel);
     m_stopButton = new QPushButton("停止", controlPanel);
+    m_connectButton = new QPushButton("连接RTMP", controlPanel);
+    m_rtmpUrlEdit = new QLineEdit(controlPanel);
+    m_rtmpUrlEdit->setPlaceholderText("输入RTMP地址");
+    m_rtmpUrlEdit->setMinimumWidth(200);
 
     // 创建进度条和音量控制
     m_seekSlider = new QSlider(Qt::Horizontal, controlPanel);
@@ -105,6 +109,8 @@ void MainWindow::setupUI()
     controlLayout->addWidget(m_playButton);
     controlLayout->addWidget(m_pauseButton);
     controlLayout->addWidget(m_stopButton);
+    controlLayout->addWidget(m_rtmpUrlEdit);
+    controlLayout->addWidget(m_connectButton);
     controlLayout->addWidget(m_timeLabel);
     controlLayout->addWidget(m_seekSlider);
     controlLayout->addWidget(m_durationLabel);
@@ -126,6 +132,7 @@ void MainWindow::connectSignals()
     connect(m_stopButton, &QPushButton::clicked, this, &MainWindow::onStopClicked);
     connect(m_seekSlider, &QSlider::sliderMoved, this, &MainWindow::onSeekSliderMoved);
     connect(m_volumeSlider, &QSlider::valueChanged, this, &MainWindow::onVolumeChanged);
+    connect(m_connectButton, &QPushButton::clicked, this, &MainWindow::onConnectClicked);
 }
 
 void MainWindow::onOpenFile()
@@ -161,14 +168,31 @@ void MainWindow::onSeekSliderMoved(int value)
 {
     if (m_mediaPlayer && m_duration > 0) {
         qint64 position = static_cast<qint64>(value) * m_duration / 100;
-        m_mediaPlayer->setPosition(position);
+        m_mediaPlayer->seek(position);
     }
 }
 
 void MainWindow::onVolumeChanged(int value)
 {
     if (m_mediaPlayer) {
-        m_mediaPlayer->setVolume(value);
+        m_mediaPlayer->setVolume(value / 100.0f);
+    }
+}
+
+void MainWindow::onConnectClicked()
+{
+    QString url = m_rtmpUrlEdit->text().trimmed();
+    if (!url.isEmpty()) {
+        onRtmpOpened(url);
+    }
+}
+
+void MainWindow::onRtmpOpened(const QString& url)
+{
+    m_currentRtmpUrl = url;
+    updateWindowTitle();
+    if (m_mediaPlayer) {
+        m_mediaPlayer->setSource(url);
     }
 }
 
@@ -186,7 +210,7 @@ void MainWindow::onError(const QString& message)
     qWarning() << "Media error:" << message;
 }
 
-void MainWindow::onMediaStateChanged(aurorastream::core::MediaPlayerState state)
+void MainWindow::onMediaStateChanged(aurorastream::MediaState state)
 {
     updateButtons();
 }
@@ -246,10 +270,10 @@ void MainWindow::updateButtons()
         return;
     }
 
-    auto state = m_mediaPlayer->state();
-    m_playButton->setEnabled(state != core::MediaPlayerState::Playing);
-    m_pauseButton->setEnabled(state == core::MediaPlayerState::Playing);
-    m_stopButton->setEnabled(state != core::MediaPlayerState::Stopped);
+    auto state = m_mediaPlayer->getState();
+    m_playButton->setEnabled(state != MediaState::PLAYING);
+    m_pauseButton->setEnabled(state == MediaState::PLAYING);
+    m_stopButton->setEnabled(state != MediaState::STOPPED);
 }
 
 void MainWindow::updateWindowTitle()
@@ -257,6 +281,8 @@ void MainWindow::updateWindowTitle()
     QString title = "AuroraStream";
     if (!m_currentFile.isEmpty()) {
         title += " - " + QFileInfo(m_currentFile).fileName();
+    } else if (!m_currentRtmpUrl.isEmpty()) {
+        title += " - " + m_currentRtmpUrl;
     }
     setWindowTitle(title);
 }

@@ -1,457 +1,236 @@
-/********************************************************************************
- * @file   : Player.cpp
- * @brief  : AuroraStream 媒体播放器模块的实现
- *
- * 本文件实现了 Player 类，它提供了媒体播放器的基本功能
- * 包括初始化、播放控制、状态管理等
- *
- * @author : polarours
- * @date   : 2025/08/25
- ********************************************************************************/
+
 
 #include "aurorastream/modules/media/player/Player.h"
+
+#include "aurorastream/AuroraStream.h"
+#include "aurorastream/modules/media/decoder/Decoder.h"
+#include "aurorastream/modules/media/renderer/VideoRenderer.h"
+#include "aurorastream/modules/media/renderer/AudioRenderer.h"
+#include <QtCore/QObject>
+#include <QtCore/QDebug>
+#include <QDebug>
+
+#include "SDL2/SDL_audio.h"
 
 namespace aurorastream {
 namespace modules {
 namespace media {
 namespace player {
 
-/**
- * @brief Player 类的构造函数
- * @param parent 父对象
- * @note 初始化播放器状态
- */
-Player::Player(QObject *parent) : QObject(parent),
+Player::Player(QObject* parent)
+    : QObject(parent),
     m_state(State::Stopped),
-    m_duration(0),
-    m_position(0)
+    m_position(0),
+    m_duration(0)
 {
-    // 生成创建日志
     qDebug() << "Player initialized";
 }
 
 Player::~Player()
 {
-    // 生成销毁日志
+    stop();
     qDebug() << "Player destroyed";
 }
 
-/**
- * @brief 设置解码器
- * @param decoder 解码器对象
- * @note 解码器对象的所有权将被转移到 Player 对象
- */
-void Player::setDecoder(std::unique_ptr<aurorastream::modules::media::decoder::Decoder> decoder) {
-    m_decoder = std::move(decoder);
+bool Player::open(const QString& uri)
+{
+    if (m_state != State::Stopped) {
+        qWarning() << "Player is not in stopped state";
+        return false;
+    }
+
+    m_state = State::Opening;
+    emit stateChanged(m_state);
+
+    // 初始化解码器（视频解码器）
+    m_decoder = std::make_unique<decoder::Decoder>(decoder::Decoder::Type::VIDEO);
+
+    // 延迟渲染器初始化
+    m_videoRenderer = nullptr;
+    m_audioRenderer = nullptr;
+
+    // 打开媒体源
+    if (m_decoder->open(uri)) {
+        // 根据媒体类型初始化渲染器
+        if (m_decoder->hasVideo()) {
+            m_videoRenderer = createVideoRenderer(); // 需要实现此工厂方法
+            if (!m_videoRenderer) {
+                qWarning() << "Failed to create video renderer";
+                return false;
+            }
+        }
+
+        if (m_decoder->hasAudio()) {
+            m_audioRenderer = createAudioRenderer(); // 需要实现此工厂方法
+            if (!m_audioRenderer) {
+                qWarning() << "Failed to create audio renderer";
+                return false;
+            }
+        }
+        m_currentUri = uri;
+        m_duration = m_decoder->getDuration();
+        m_state = State::Opened;
+        emit stateChanged(m_state);
+        emit mediaOpened(uri);
+        emit durationChanged(m_duration);
+        return true;
+    }
+
+    m_state = State::Error;
+    emit stateChanged(m_state);
+    emit error("Failed to open media");
+    return false;
 }
 
-/**
- * @brief 设置视频渲染器
- * @param videoRenderer 视频渲染器对象
- * @note 视频渲染器对象的所有权将被转移到 Player 对象
- */
-void Player::setVideoRenderer(std::unique_ptr<aurorastream::modules::media::renderer::VideoRenderer> videoRenderer) {
-    m_videoRenderer = std::move(videoRenderer);
+bool Player::play()
+{
+    if (m_state != State::Opened && m_state != State::Paused) {
+        qWarning() << "Invalid state for play operation";
+        return false;
+    }
+
+    m_state = State::Playing;
+    emit stateChanged(m_state);
+
+    // 启动解码线程
+    m_decodeThread = std::thread([this]() {
+        while (m_state == State::Playing) {
+            auto frame = m_decoder->getNextFrame();
+            if (frame) {
+                if (frame->type == decoder::FrameType::VIDEO && m_videoRenderer) {
+                    m_videoRenderer->render(*frame);
+                } else if (frame->type == decoder::FrameType::AUDIO && m_audioRenderer) {
+                    // 对于音频帧，需要转换为AudioFrame
+                    decoder::AudioFrame audioFrame;
+                    audioFrame.type = decoder::FrameType::AUDIO;
+                    audioFrame.data[0] = frame->data[0];
+                    audioFrame.samples = frame->width; // 使用width作为samples
+                    audioFrame.channels = 2;
+                    audioFrame.sampleRate = 44100;
+                    audioFrame.pts = frame->pts;
+                    audioFrame.duration = frame->duration;
+                    m_audioRenderer->queueAudio(audioFrame);
+                }
+                m_position = frame->pts;
+                emit positionChanged(m_position);
+            }
+        }
+    });
+
+    // 启动音频渲染线程
+    if (m_audioRenderer) {
+        m_audioThread = std::thread([this]() {
+            m_audioRenderer->play();
+        });
+    }
+    return true;
 }
 
-/**
- * @brief 设置音频渲染器
- * @param audioRenderer 音频渲染器对象
- * @note 音频渲染器对象的所有权将被转移到 Player 对象
- */
-void Player::setAudioRenderer(std::unique_ptr<aurorastream::modules::media::renderer::AudioRenderer> audioRenderer) {
-    m_audioRenderer = std::move(audioRenderer);
+bool Player::pause()
+{
+    if (m_state != State::Playing) {
+        qWarning() << "Invalid state for pause operation";
+        return false;
+    }
+
+    m_state = State::Paused;
+    emit stateChanged(m_state);
+    return true;
 }
 
-/**
- * @brief 打开媒体文件
- * @param uri 媒体文件的URI
- * @return 是否成功打开
- */
-bool Player::open(const QString &uri) {
-    return doOpen(uri);
+bool Player::stop()
+{
+    if (m_state == State::Stopped) {
+        return true;
+    }
+
+    // 停止解码线程
+    if (m_decodeThread.joinable()) {
+        m_decodeThread.join();
+    }
+
+    // 停止音频线程
+    if (m_audioThread.joinable()) {
+        m_audioRenderer->stop();
+        m_audioThread.join();
+    }
+
+    // 清理渲染器
+    if (m_videoRenderer) {
+        m_videoRenderer->cleanup();
+    }
+    if (m_audioRenderer) {
+        m_audioRenderer->cleanup();
+    }
+
+    m_state = State::Stopped;
+    m_position = 0;
+    m_currentUri.clear();
+    emit stateChanged(m_state);
+    emit positionChanged(m_position);
+    emit finished();
+    return true;
 }
 
-/**
- * @brief 播放媒体文件
- */
-void Player::play() {
-    doPlay();
+bool Player::seek(qint64 position)
+{
+    if (m_state != State::Playing && m_state != State::Paused) {
+        qWarning() << "Invalid state for seek operation";
+        return false;
+    }
+
+    State oldState = m_state;
+    m_state = State::Seeking;
+    emit stateChanged(m_state);
+
+    // TODO: 实现精确跳转
+    if (m_decoder->seek(position)) {
+        m_position = position;
+        m_state = oldState;
+        emit stateChanged(m_state);
+        emit positionChanged(m_position);
+        return true;
+    }
+
+    m_state = State::Error;
+    emit stateChanged(m_state);
+    emit error("Seek failed");
+    return false;
 }
 
-/**
- * @brief 暂停播放
- */
-void Player::pause() {
-    doPause();
-}
-
-/**
- * @brief 停止播放
- */
-void Player::stop() {
-    doStop();
-}
-
-/**
- * @brief 跳转到指定位置
- * @param position 位置（毫秒）
- */
-void Player::seek(qint64 position) {
-    doSeek(position);
-}
-
-/**
- * @brief 关闭媒体文件
- */
-void Player::close() {
-    doClose();
-}
-
-/**
- * @brief 获取当前播放状态
- * @return 当前播放状态
- */
-Player::State Player::getState() const {
+Player::State Player::state() const
+{
     return m_state;
 }
 
-/**
- * @brief 获取当前播放的媒体URI
- * @return 当前播放的媒体URI
- */
-QString Player::getCurrentUri() const {
-    return m_currentUri;
-}
-
-/**
- * @brief 获取当前播放的媒体时长
- * @return 当前播放的媒体时长
- */
-qint64 Player::getDuration() const {
-    return m_duration;
-}
-
-/**
- * @brief 获取当前播放的媒体位置
- * @return 当前播放的媒体位置
- */
-qint64 Player::getPosition() const {
+qint64 Player::position() const
+{
     return m_position;
 }
 
-/**
- * @brief 获取当前播放的媒体视频宽度
- * @return 当前播放的媒体视频宽度
- */
-int Player::getVideoWidth() const {
-    return m_decoder ? m_decoder->getVideoWidth() : 0;
+qint64 Player::duration() const
+{
+    return m_duration;
 }
 
-/**
- * @brief 获取当前播放的媒体视频高度
- * @return 当前播放的媒体视频高度
- */
-int Player::getVideoHeight() const {
-    return m_decoder ? m_decoder->getVideoHeight() : 0;
-}
-
-/**
- * @brief 获取当前播放的媒体视频帧率
- * @return 当前播放的媒体视频帧率
- */
-double Player::getVideoFrameRate() const {
-    return m_decoder ? m_decoder->getVideoFrameRate() : 0.0;
-}
-
-/**
- * @brief 获取当前播放的媒体音频采样率
- * @return 当前播放的媒体音频采样率
- */
-int Player::getAudioSampleRate() const {
-    return m_decoder ? m_decoder->getAudioSampleRate() : 0;
-}
-
-/**
- * @brief 获取当前播放的媒体音频通道数
- * @return 当前播放的媒体音频通道数
- */
-int Player::getAudioChannels() const {
-    return m_decoder ? m_decoder->getAudioChannels() : 0;
-}
-
-/**
- * @brief 设置播放状态
- * @param newState 新的播放状态
- * @note 如果新的状态与当前状态不同，则发出 stateChanged 信号
- */
-void Player::setState(State newState) {
-    if (m_state != newState) {
-        m_state = newState;
-        emit stateChanged(m_state);
-    }else {
-        qDebug() << "Player::setState(): Already in state:" << m_state;
-    }
-}
-
-/**
- * @brief 更新当前播放位置
- * @param newPosition 新的播放位置
- * @note 如果新的位置与当前位置不同，则发出 positionChanged 信号
- */
-void Player::updatePosition(qint64 newPosition) {
-    if (m_position != newPosition) {
-        m_position = newPosition;
-        emit positionChanged(m_position);
-    }else {
-        qDebug() << "Player::updatePosition(): Already at position:" << m_position;
-    }
-}
-
-/**
- * @brief 更新当前播放时长
- * @param newDuration 新的播放时长
- * @note 如果新的时长与当前时长不同，则发出 durationChanged 信号
- */
-void Player::updateDuration(qint64 newDuration) {
-    if (m_duration != newDuration) {
-        m_duration = newDuration;
-        emit durationChanged(m_duration);
-    }else {
-        qDebug() << "Player::updateDuration(): Already at duration:" << m_duration;
-    }
-}
-
-/**
- * @brief 打开媒体文件
- * @param uri 媒体文件的URI
- * @return 是否成功打开
- * @note 如果当前状态是停止状态，则切换为打开状态，否则直接返回false
- * @note 如果打开成功，则发出 mediaOpened 信号，否则发出 errorOccurred 信号
- */
-bool Player::doOpen(const QString &uri) {
-    if (m_state != State::Stopped) {
-        return false; // 如果不是停止状态，则直接返回false
-    }
-
-    setState(State::Opening); // 切换为正在打开状态
-    if (m_decoder && m_decoder->open(uri)) {
-        m_currentUri = uri;
-        setState(State::Opened);
-        emit mediaOpened(uri);
-        return true;
-    } else {
-        setState(State::Error);
-        emit errorOccurred("Failed to open media file");
-        return false;
-    }
-}
-
-/**
- * @brief 播放媒体
- * @return 是否成功播放
- * @note 如果当前状态是打开状态或者暂停状态，则切换为正在播放状态，否则直接返回false
- * @note 如果播放成功，则发出 mediaPlayed 信号，否则发出 errorOccurred 信号
- */
-bool Player::doPlay() {
-    if (m_state != State::Opened && m_state != State::Paused) {
-        return false;
-    }
-
-    setState(State::Starting);
-    if (m_decoder && m_decoder->play()) {
-        setState(State::Playing);
-        emit mediaPlayed();
-        return true;
-    } else {
-        setState(State::Error);
-        emit errorOccurred("Failed to start playback");
-        return false;
-    }
-}
-
-/**
- * @brief 暂停媒体
- * @return 是否成功暂停
- * @note 如果当前状态是播放状态，则切换为正在暂停状态，否则直接返回false
- * @note 如果暂停成功，则发出 mediaPaused 信号，否则发出 errorOccurred 信号
- */
-bool Player::doPause() {
-    if (m_state != State::Playing) {
-        return false;
-    }
-
-    setState(State::Pausing);
-    if (m_decoder && m_decoder->pause()) {
-        setState(State::Paused);
-        emit mediaPaused();
-        return true;
-    } else {
-        setState(State::Error);
-        emit errorOccurred("Failed to pause playback");
-        return false;
-    }
-}
-
-/**
- * @brief 停止媒体
- * @return 是否成功停止
- * @note 如果当前状态是停止状态，则直接返回false
- * @note 如果停止成功，则发出 finished 信号，否则发出 errorOccurred 信号
- */
-bool Player::doStop() {
-    if (m_state == State::Stopped) {
-        return false;
-    }
-
-    setState(State::Stopping);
-    if (m_decoder && m_decoder->stop()) {
-        setState(State::Stopped);
-        m_currentUri.clear();
-        m_duration = 0;
-        m_position = 0;
-        emit finished();
-        return true;
-    } else {
-        setState(State::Error);
-        emit errorOccurred("Failed to stop playback");
-        return false;
-    }
-}
-
-/**
- * @brief 改变播放位置
- * @param newPosition 新的播放位置
- * @return 是否成功改变播放位置
- * @note 如果当前状态是播放状态或者暂停状态，则切换为正在改变播放位置状态，否则直接返回false
- * @note 如果改变播放位置成功，则发出 positionChanged 信号，否则发出 errorOccurred 信号
- */
-bool Player::doSeek(qint64 newPosition) {
-    if (m_state != State::Playing && m_state != State::Paused) {
-        return false;
-    }
-
-    setState(State::Seeking);
-    if (m_decoder && m_decoder->seek(newPosition)) {
-        updatePosition(newPosition);
-        emit positionChanged(newPosition);
-        setState(m_state == State::Playing ? State::Playing : State::Paused);
-        return true;
-    } else {
-        setState(State::Error);
-        emit errorOccurred("Failed to seek");
-        return false;
-    }
-}
-
-/**
- * @brief 关闭媒体文件
- * @return 是否成功关闭
- * @note 如果当前状态是停止状态，则直接返回false
- * @note 如果关闭成功，则发出 mediaClosed 信号，否则发出 errorOccurred 信号
- */
-bool Player::doClose() {
-    if (m_state == State::Stopped) {
-        return false;
-    }
-
-    setState(State::Closing);
-    if (m_decoder && m_decoder->close()) {
-        setState(State::Stopped);
-        m_currentUri.clear();
-        m_duration = 0;
-        m_position = 0;
-        return true;
-    } else {
-        setState(State::Error);
-        emit errorOccurred("Failed to close media file");
-        return false;
-    }
-}
-
-/**
- * @brief 处理视频帧
- * @param frame 视频帧
- */
-void Player::handleVideoFrame(const aurorastream::modules::media::decoder::VideoFrame &frame) {
-    if (m_videoRenderer) {
-        m_videoRenderer->render(frame);
-    }
-    emit videoFrameReady(frame);
-}
-
-/**
- * @brief 处理音频帧
- * @param frame 音频帧
- */
-void Player::handleAudioFrame(const aurorastream::modules::media::decoder::AudioFrame &frame) {
-    if (m_audioRenderer) {
-        m_audioRenderer->queueAudio(frame);
-    }
-    emit audioFrameReady(frame);
-}
-
-/**
- * @brief 响应视频帧
- * @param frame 视频帧
- */
-void Player::onVideoFrameReady(const aurorastream::modules::media::decoder::VideoFrame &frame) {
-    handleVideoFrame(frame);
-}
-
-/**
- * @brief 响应音频帧
- * @param frame 音频帧
- */
-void Player::onAudioFrameReady(const aurorastream::modules::media::decoder::AudioFrame &frame) {
-    handleAudioFrame(frame);
-}
-
-/**
- * @brief 响应总时长变化
- * @param duration 总时长
- */
-void Player::onDurationChanged(qint64 duration) {
-    updateDuration(duration);
-}
-
-/**
- * @brief 响应播放位置变化
- * @param position 播放位置
- */
-void Player::onPositionChanged(qint64 position) {
-    updatePosition(position);
-}
-
-/**
- * @brief 响应错误
- * @param errorMessage 错误信息
- */
-void Player::onErrorOccurred(const QString &errorMessage) {
-    setState(State::Error);
-    emit errorOccurred(errorMessage);
-}
-
-/**
- * @brief 响应媒体打开
- * @param uri 媒体文件路径
- * @note 发出 mediaOpened 信号
- */
-void Player::onMediaOpened(const QString &uri) {
-    m_currentUri = uri;
-    emit mediaOpened(uri);
-}
-
-/**
- * @brief 响应媒体播放完成
- * @note 发出 mediaFinished 信号
- */
-void Player::onMediaFinished() {
-    setState(State::Stopped);
-    emit mediaFinished();
+QString Player::currentUri() const
+{
+    return m_currentUri;
 }
 
 } // namespace player
 } // namespace media
 } // namespace modules
+std::unique_ptr<modules::media::renderer::VideoRenderer> modules::media::player::Player::createVideoRenderer()
+{
+    // 简单实现，返回nullptr
+    return nullptr;
+}
+
+std::unique_ptr<modules::media::renderer::AudioRenderer> modules::media::player::Player::createAudioRenderer()
+{
+    // 简单实现，返回nullptr
+    return nullptr;
+}
+
 } // namespace aurorastream
