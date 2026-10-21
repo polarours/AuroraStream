@@ -7,6 +7,12 @@ use bytes::{BufMut, Bytes, BytesMut};
 pub const CSID_PROTOCOL_CONTROL: u32 = 2;
 /// Chunk stream used for user control messages and AMF commands.
 pub const CSID_COMMAND: u32 = 3;
+/// Chunk stream used for AMF0 data messages such as `onMetaData`.
+pub const CSID_DATA: u32 = 5;
+/// Chunk stream carrying audio messages.
+pub const CSID_AUDIO: u32 = 6;
+/// Chunk stream carrying video messages.
+pub const CSID_VIDEO: u32 = 7;
 
 /// Largest chunk stream id that fits into the one byte basic header.
 const MAX_SHORT_CSID: u32 = 63;
@@ -376,4 +382,150 @@ fn write_u24(buf: &mut BytesMut, val: u32) {
     buf.put_u8((val >> 16) as u8);
     buf.put_u8((val >> 8) as u8);
     buf.put_u8(val as u8);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Builds a fmt 0 chunk by hand, straight from the specification.
+    ///
+    /// `payload` are the bytes this chunk carries, `total_len` is the length the
+    /// message header announces.
+    fn raw_message(
+        csid: u32,
+        timestamp: u32,
+        msg_type: u8,
+        stream_id: u32,
+        payload: &[u8],
+        total_len: usize,
+    ) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.push(csid as u8); // fmt 0, chunk stream id
+        out.extend_from_slice(&timestamp.to_be_bytes()[1..]); // timestamp, 3 bytes
+        out.extend_from_slice(&(total_len as u32).to_be_bytes()[1..]); // length, 3 bytes
+        out.push(msg_type);
+        out.extend_from_slice(&stream_id.to_le_bytes());
+        out.extend_from_slice(payload);
+        out
+    }
+
+    #[test]
+    fn decodes_a_single_message() {
+        let mut decoder = ChunkDecoder::new(128);
+        let raw = raw_message(3, 1000, 20, 1, b"hello", 5);
+
+        let messages = decoder.decode(&raw).unwrap();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].payload.as_ref(), b"hello");
+        assert_eq!(messages[0].header.timestamp, 1000);
+        assert_eq!(messages[0].header.msg_type_id, 20);
+        assert_eq!(messages[0].header.msg_stream_id, 1);
+    }
+
+    #[test]
+    fn waits_for_the_rest_of_a_message() {
+        let mut decoder = ChunkDecoder::new(128);
+        let raw = raw_message(3, 0, 20, 1, b"hello", 5);
+
+        // Only the first half arrives.
+        let messages = decoder.decode(&raw[..8]).unwrap();
+        assert!(messages.is_empty());
+
+        let messages = decoder.decode(&raw[8..]).unwrap();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].payload.as_ref(), b"hello");
+    }
+
+    #[test]
+    fn reassembles_a_message_split_over_several_chunks() {
+        let mut decoder = ChunkDecoder::new(4); // a tiny chunk size forces splitting
+        let payload: Vec<u8> = (0u8..20).collect();
+
+        let mut raw = Vec::new();
+        raw.extend_from_slice(&raw_message(3, 0, 9, 1, &payload[..4], payload.len()));
+        // A fmt 3 chunk carries nothing but the basic header.
+        for chunk in payload[4..].chunks(4) {
+            raw.push(0xC3);
+            raw.extend_from_slice(chunk);
+        }
+
+        let messages = decoder.decode(&raw).unwrap();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].payload.as_ref(), payload.as_slice());
+    }
+
+    #[test]
+    fn applies_the_chunk_size_of_the_peer() {
+        let mut decoder = ChunkDecoder::new(128);
+        decoder.set_chunk_size(4);
+
+        let payload: Vec<u8> = (0u8..10).collect();
+        let mut raw = raw_message(6, 0, 8, 1, &payload[..4], payload.len());
+        for chunk in payload[4..].chunks(4) {
+            raw.push(0xC6);
+            raw.extend_from_slice(chunk);
+        }
+
+        let messages = decoder.decode(&raw).unwrap();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].payload.as_ref(), payload.as_slice());
+    }
+
+    #[test]
+    fn keeps_the_message_headers_of_different_streams_apart() {
+        let mut decoder = ChunkDecoder::new(128);
+        let mut raw = raw_message(3, 0, 20, 1, b"command", 7);
+        raw.extend_from_slice(&raw_message(6, 0, 8, 1, b"audio", 5));
+
+        let messages = decoder.decode(&raw).unwrap();
+        assert_eq!(messages.len(), 2);
+        assert_eq!(messages[0].header.chunk_stream_id, 3);
+        assert_eq!(messages[0].payload.as_ref(), b"command");
+        assert_eq!(messages[1].header.chunk_stream_id, 6);
+        assert_eq!(messages[1].payload.as_ref(), b"audio");
+    }
+
+    #[test]
+    fn encodes_a_message_into_several_chunks() {
+        let header = ChunkHeader {
+            fmt: 0,
+            chunk_stream_id: 6,
+            timestamp: 42,
+            timestamp_delta: 0,
+            msg_length: 10,
+            msg_type_id: 8,
+            msg_stream_id: 1,
+        };
+        let encoded = encode_message(&header, &[1u8; 10], 4);
+
+        // The first chunk carries the full header, the continuations only the basic one.
+        assert_eq!(encoded[0], 0x06);
+        assert_eq!(encoded[1..4], [0x00, 0x00, 0x2a]); // timestamp
+        assert_eq!(encoded[4..7], [0x00, 0x00, 0x0a]); // length
+        assert_eq!(encoded[7], 8); // message type
+        // The continuation chunks start after the 12 byte header and the 4 payload bytes.
+        assert_eq!(encoded[16], 0xC6);
+    }
+
+    #[test]
+    fn round_trips_through_the_decoder() {
+        let mut decoder = ChunkDecoder::new(128);
+        let header = ChunkHeader {
+            fmt: 0,
+            chunk_stream_id: 7,
+            timestamp: 1234,
+            timestamp_delta: 0,
+            msg_length: 5,
+            msg_type_id: 9,
+            msg_stream_id: 1,
+        };
+        let encoded = encode_message(&header, b"frame", 128);
+
+        let messages = decoder.decode(&encoded).unwrap();
+        assert_eq!(messages.len(), 1);
+        assert_eq!(messages[0].payload.as_ref(), b"frame");
+        assert_eq!(messages[0].header.timestamp, 1234);
+        assert_eq!(messages[0].header.chunk_stream_id, 7);
+    }
 }

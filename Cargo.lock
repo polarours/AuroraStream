@@ -165,6 +165,7 @@ dependencies = [
  "aurora-core",
  "axum",
  "bytes",
+ "futures-core",
  "http",
  "parking_lot",
  "serde",

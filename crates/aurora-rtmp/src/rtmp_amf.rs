@@ -257,3 +257,137 @@ fn read_str(data: &[u8], offset: &mut usize, len: usize) -> Result<String, AmfEr
     *offset += len;
     Ok(String::from_utf8_lossy(bytes).into_owned())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn round_trip(value: &AmfValue) -> AmfValue {
+        let mut out = bytes::BytesMut::new();
+        encode(value, &mut out);
+        let mut offset = 0;
+        parse(&out, &mut offset).expect("the value should parse")
+    }
+
+    #[test]
+    fn round_trips_the_simple_types() {
+        assert_eq!(round_trip(&AmfValue::Number(3.5)), AmfValue::Number(3.5));
+        assert_eq!(
+            round_trip(&AmfValue::Boolean(true)),
+            AmfValue::Boolean(true)
+        );
+        assert_eq!(
+            round_trip(&AmfValue::String("hello".into())),
+            AmfValue::String("hello".into())
+        );
+        assert_eq!(round_trip(&AmfValue::Null), AmfValue::Null);
+        assert_eq!(
+            round_trip(&AmfValue::Undefined),
+            AmfValue::Undefined
+        );
+    }
+
+    #[test]
+    fn round_trips_an_object() {
+        let value = AmfValue::Object(vec![
+            ("name".to_string(), AmfValue::String("aurora".into())),
+            ("level".to_string(), AmfValue::String("status".into())),
+            ("code".to_string(), AmfValue::Number(200.0)),
+        ]);
+
+        match round_trip(&value) {
+            AmfValue::Object(entries) => {
+                assert_eq!(entries.len(), 3);
+                assert_eq!(entries[0].0, "name");
+                assert_eq!(entries[0].1, AmfValue::String("aurora".into()));
+                assert_eq!(entries[2].1, AmfValue::Number(200.0));
+            }
+            other => panic!("expected an object, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn round_trips_an_ecma_array() {
+        let value = AmfValue::EcmaArray(vec![
+            ("width".to_string(), AmfValue::Number(640.0)),
+            ("height".to_string(), AmfValue::Number(360.0)),
+        ]);
+
+        let parsed = round_trip(&value);
+        assert_eq!(parsed.get("width").and_then(|v| v.as_number()), Some(640.0));
+        assert_eq!(
+            parsed.get("height").and_then(|v| v.as_number()),
+            Some(360.0)
+        );
+    }
+
+    #[test]
+    fn round_trips_a_strict_array() {
+        let value = AmfValue::StrictArray(vec![
+            AmfValue::Number(1.0),
+            AmfValue::String("two".into()),
+        ]);
+
+        match round_trip(&value) {
+            AmfValue::StrictArray(items) => {
+                assert_eq!(items.len(), 2);
+                assert_eq!(items[1], AmfValue::String("two".into()));
+            }
+            other => panic!("expected an array, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn builds_a_command_with_its_arguments() {
+        let payload = encode_command(
+            "_result",
+            1.0,
+            &[AmfValue::Null, AmfValue::Number(2.0)],
+        );
+
+        let mut offset = 0;
+        let name = parse(&payload, &mut offset).unwrap();
+        assert_eq!(name.as_str(), Some("_result"));
+
+        let transaction_id = parse(&payload, &mut offset).unwrap();
+        assert_eq!(transaction_id.as_number(), Some(1.0));
+
+        let null = parse(&payload, &mut offset).unwrap();
+        assert_eq!(null, AmfValue::Null);
+
+        let stream_id = parse(&payload, &mut offset).unwrap();
+        assert_eq!(stream_id.as_number(), Some(2.0));
+    }
+
+    #[test]
+    fn builds_a_status_notification() {
+        let payload = encode_status(1.0, "status", "NetStream.Publish.Start", "Go");
+
+        let mut offset = 0;
+        let name = parse(&payload, &mut offset).unwrap();
+        assert_eq!(name.as_str(), Some("onStatus"));
+
+        let transaction_id = parse(&payload, &mut offset).unwrap();
+        assert_eq!(transaction_id.as_number(), Some(1.0));
+
+        // The command object of an `onStatus` is null.
+        let command_object = parse(&payload, &mut offset).unwrap();
+        assert_eq!(command_object, AmfValue::Null);
+
+        let information = parse(&payload, &mut offset).unwrap();
+        assert_eq!(
+            information.get("code").and_then(|v| v.as_str()),
+            Some("NetStream.Publish.Start")
+        );
+        assert_eq!(
+            information.get("level").and_then(|v| v.as_str()),
+            Some("status")
+        );
+    }
+
+    #[test]
+    fn rejects_a_truncated_value() {
+        let mut offset = 0;
+        assert!(parse(&[0x02, 0x00], &mut offset).is_err());
+    }
+}

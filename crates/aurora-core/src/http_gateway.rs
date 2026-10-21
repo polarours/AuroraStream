@@ -168,6 +168,10 @@ async fn stats_handler(State(state): State<GatewayState>) -> impl IntoResponse {
                 "key": s.key,
                 "video_codec": s.codec_info.video_codec,
                 "audio_codec": s.codec_info.audio_codec,
+                "width": s.codec_info.width,
+                "height": s.codec_info.height,
+                "sample_rate": s.codec_info.sample_rate,
+                "channels": s.codec_info.channels,
                 "uptime": s.started_at.elapsed().as_secs(),
             })
         })
@@ -191,6 +195,10 @@ async fn streams_handler(State(state): State<GatewayState>) -> impl IntoResponse
                 "key": s.key,
                 "video_codec": s.codec_info.video_codec,
                 "audio_codec": s.codec_info.audio_codec,
+                "width": s.codec_info.width,
+                "height": s.codec_info.height,
+                "sample_rate": s.codec_info.sample_rate,
+                "channels": s.codec_info.channels,
             })
         })
         .collect();

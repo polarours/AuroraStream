@@ -33,7 +33,7 @@ cleanup() {
         kill -9 "$SERVER_PID" 2>/dev/null || true
         wait "$SERVER_PID" 2>/dev/null || true
     fi
-    rm -f "$LOG"
+    # keep the log for inspection
 }
 trap cleanup EXIT
 
@@ -119,7 +119,7 @@ echo "==> pushing an RTMP stream"
 ffmpeg -hide_banner -loglevel error -re \
     -f lavfi -i "testsrc=size=320x240:rate=15" \
     -f lavfi -i "sine=frequency=440" \
-    -c:v libx264 -preset ultrafast -t 8 -g 30 -c:a aac \
+    -c:v libx264 -preset ultrafast -t 25 -g 30 -c:a aac \
     -f flv "rtmp://127.0.0.1:$RTMP_PORT/$STREAM_KEY" &
 FFMPEG_PID=$!
 
@@ -131,17 +131,48 @@ STATS="$(curl -fsS -m 2 "http://127.0.0.1:$HTTP_PORT/api/stats")"
 check "the stream is listed" "\"key\":\"$STREAM_KEY\"" "$STATS"
 check "the video codec was detected" '"video_codec":"h264"' "$STATS"
 check "the audio codec was detected" '"audio_codec":"aac"' "$STATS"
+check "the video dimensions were detected" '"width":320' "$STATS"
+check "the video height was detected" '"height":240' "$STATS"
 
 STREAMS="$(curl -fsS -m 2 "http://127.0.0.1:$HTTP_PORT/api/streams")"
 check "the streams endpoint lists the stream" "$STREAM_KEY" "$STREAMS"
+
+PLUGIN_STREAMS="$(curl -fsS -m 2 "http://127.0.0.1:$HTTP_PORT/api/rtmp/streams")"
+check "the plugin route lists the stream" "$STREAM_KEY" "$PLUGIN_STREAMS"
+check "the plugin route reports the dimensions" '"width":320' "$PLUGIN_STREAMS"
 
 SESSIONS="$(curl -fsS -m 2 "http://127.0.0.1:$HTTP_PORT/api/rtmp/sessions")"
 check "the plugin route reports the session" '"state":"publishing"' "$SESSIONS"
 check "the session counted the bytes" '"bytes_received":' "$SESSIONS"
 
+echo "==> fetching the stream over HTTP-FLV"
+FLV_FILE="$(mktemp -t aurora-flv-XXXXXX.flv)"
+timeout 6 curl -s -N "http://127.0.0.1:$HTTP_PORT/flv/$STREAM_KEY.flv" -o "$FLV_FILE" || true
+if [[ -s "$FLV_FILE" ]]; then
+    ok "the HTTP-FLV endpoint delivered data"
+else
+    fail "the HTTP-FLV endpoint delivered no data"
+fi
+PROBE="$(ffprobe -hide_banner -v error \
+    -show_entries stream=codec_name,width,height -of csv "$FLV_FILE" 2>&1 || true)"
+check "the FLV stream carries h264" "h264" "$PROBE"
+check "the FLV stream has the published width" "320" "$PROBE"
+check "the FLV stream has the published height" "240" "$PROBE"
+rm -f "$FLV_FILE"
+
+echo "==> playing the stream back"
+PLAYBACK="$(timeout 20 ffmpeg -hide_banner -loglevel info \
+    -i "rtmp://127.0.0.1:$RTMP_PORT/$STREAM_KEY" -t 3 -f null - 2>&1 || true)"
+check "the player got a video stream" "Video: h264" "$PLAYBACK"
+check "the player got an audio stream" "Audio: aac" "$PLAYBACK"
+check "the player sees the published dimensions" "320x240" "$PLAYBACK"
+check "the player decoded frames" "frame=" "$PLAYBACK"
+
 wait "$FFMPEG_PID" 2>/dev/null || true
 
-echo "==> checking the API after the stream ended"
+echo "==> waiting for the publisher to stop"
+wait "$FFMPEG_PID" 2>/dev/null || true
+FFMPEG_PID=""
 sleep 1
 STATS="$(curl -fsS -m 2 "http://127.0.0.1:$HTTP_PORT/api/stats")"
 check "the stream was removed" '"streams":0' "$STATS"

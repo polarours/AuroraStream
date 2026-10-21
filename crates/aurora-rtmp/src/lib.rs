@@ -6,12 +6,20 @@ use aurora_core::error::{AuroraError, Result};
 use aurora_core::event_bus::Event;
 use aurora_core::plugin::{HttpRoute, Plugin, PluginContext};
 
+use crate::flv_stream::FlvStream;
+
+mod flv_muxer;
+mod flv_stream;
 mod rtmp_amf;
 mod rtmp_chunk;
+mod rtmp_flv;
 mod rtmp_handshake;
 mod rtmp_session;
+mod stream_registry;
 
 pub use rtmp_amf::AmfValue;
+pub use rtmp_flv::StreamMetadata;
+pub use stream_registry::{MediaPacket, StreamRegistry, StreamSnapshot};
 pub use rtmp_chunk::{ChunkHeader, ChunkMessage};
 pub use rtmp_handshake::handshake;
 pub use rtmp_session::{RtmpSession, SessionInfo, SessionState};
@@ -20,6 +28,7 @@ pub struct RtmpPlugin {
     ctx: Option<PluginContext>,
     next_session_id: Arc<parking_lot::RwLock<u32>>,
     sessions: Arc<parking_lot::RwLock<Vec<SessionInfo>>>,
+    registry: Arc<StreamRegistry>,
     stop_tx: Option<tokio::sync::oneshot::Sender<()>>,
     server_thread: Option<std::thread::JoinHandle<()>>,
 }
@@ -36,6 +45,7 @@ impl RtmpPlugin {
             ctx: None,
             next_session_id: Arc::new(parking_lot::RwLock::new(1)),
             sessions: Arc::new(parking_lot::RwLock::new(Vec::new())),
+            registry: Arc::new(StreamRegistry::new()),
             stop_tx: None,
             server_thread: None,
         }
@@ -50,6 +60,7 @@ async fn accept_loop(
     ctx: PluginContext,
     next_id: Arc<parking_lot::RwLock<u32>>,
     sessions: Arc<parking_lot::RwLock<Vec<SessionInfo>>>,
+    registry: Arc<StreamRegistry>,
 ) {
     loop {
         match listener.accept().await {
@@ -59,6 +70,7 @@ async fn accept_loop(
                 let ctx = ctx.clone();
                 let next_id = Arc::clone(&next_id);
                 let sessions = Arc::clone(&sessions);
+                let registry = Arc::clone(&registry);
 
                 tokio::spawn(async move {
                     let session_id = {
@@ -107,6 +119,7 @@ async fn accept_loop(
                         ctx.clone(),
                         Arc::clone(&sessions),
                         Arc::clone(&bytes_received),
+                        Arc::clone(&registry),
                     );
                     let result = session.run(&ctx.event_bus).await;
 
@@ -116,10 +129,14 @@ async fn accept_loop(
                         peer: peer.to_string(),
                     });
 
-                    if let Some(stream_key) = session.stream_key() {
-                        ctx.event_bus.publish_all(Event::StreamStop {
-                            stream_key: stream_key.to_string(),
-                        });
+                    // Only the publisher ends the stream. A player that disconnects
+                    // must not take the live stream down with it.
+                    if session.is_publisher() {
+                        if let Some(stream_key) = session.stream_key() {
+                            ctx.event_bus.publish_all(Event::StreamStop {
+                                stream_key: stream_key.to_string(),
+                            });
+                        }
                     }
 
                     if let Err(e) = result {
@@ -161,6 +178,7 @@ impl Plugin for RtmpPlugin {
 
         let next_id = Arc::clone(&self.next_session_id);
         let sessions = Arc::clone(&self.sessions);
+        let registry = Arc::clone(&self.registry);
         let (stop_tx, stop_rx) = tokio::sync::oneshot::channel::<()>();
         self.stop_tx = Some(stop_tx);
 
@@ -192,7 +210,7 @@ impl Plugin for RtmpPlugin {
                     ctx.info(format!("RTMP server listening on {}", addr));
 
                     tokio::select! {
-                        _ = accept_loop(listener, ctx, next_id, sessions) => {}
+                        _ = accept_loop(listener, ctx, next_id, sessions, registry) => {}
                         _ = stop_rx => {}
                     }
                 });
@@ -243,6 +261,8 @@ impl Plugin for RtmpPlugin {
 
     fn routes(&self) -> Vec<HttpRoute> {
         let sessions = Arc::clone(&self.sessions);
+        let registry = Arc::clone(&self.registry);
+        let registry_flv = Arc::clone(&self.registry);
 
         vec![HttpRoute {
             method: "GET".to_string(),
@@ -270,8 +290,149 @@ impl Plugin for RtmpPlugin {
                     ))
                     .unwrap()
             }),
+        },
+        HttpRoute {
+            method: "GET".to_string(),
+            path: "/flv/*key".to_string(),
+            handler: Arc::new(move |req| {
+                let key = match extract_stream_key(&req) {
+                    Some(key) => key,
+                    None => return not_found("no stream key given"),
+                };
+
+                let (snapshot, receiver) = match registry_flv.subscribe(&key) {
+                    Some(subscription) => subscription,
+                    None => return not_found(&format!("stream '{}' is not live", key)),
+                };
+
+                // The FLV header, the metadata and the sequence headers are sent once,
+                // the live frames follow.
+                let mut prefix = bytes::BytesMut::new();
+                prefix.extend_from_slice(&flv_muxer::flv_header());
+                prefix.extend_from_slice(&flv_muxer::flv_tag(
+                    flv_muxer::TAG_SCRIPT,
+                    0,
+                    &rtmp_flv::build_flv_metadata(&snapshot.metadata),
+                ));
+                if let Some(video_header) = &snapshot.video_header {
+                    prefix.extend_from_slice(&flv_muxer::flv_tag(
+                        flv_muxer::TAG_VIDEO,
+                        0,
+                        video_header,
+                    ));
+                }
+                if let Some(audio_header) = &snapshot.audio_header {
+                    prefix.extend_from_slice(&flv_muxer::flv_tag(
+                        flv_muxer::TAG_AUDIO,
+                        0,
+                        audio_header,
+                    ));
+                }
+
+                let stream = FlvStream::new(receiver, prefix.freeze());
+                http::Response::builder()
+                    .status(200)
+                    .header("content-type", "video/x-flv")
+                    .header("cache-control", "no-cache")
+                    .header("x-accel-buffering", "no")
+                    .body(axum::body::Body::from_stream(stream))
+                    .unwrap()
+            }),
+        },
+        HttpRoute {
+            method: "GET".to_string(),
+            path: "/api/rtmp/streams".to_string(),
+            handler: Arc::new(move |_req| {
+                let streams = registry.list();
+                let body = serde_json::json!({
+                    "streams": streams
+                        .iter()
+                        .map(|s| serde_json::json!({
+                            "key": s.key,
+                            "video_codec": s.metadata.video_codec,
+                            "audio_codec": s.metadata.audio_codec,
+                            "width": s.metadata.width,
+                            "height": s.metadata.height,
+                            "sample_rate": s.metadata.sample_rate,
+                            "channels": s.metadata.channels,
+                            "uptime": s.started_at.elapsed().as_secs(),
+                        }))
+                        .collect::<Vec<_>>(),
+                    "count": streams.len(),
+                });
+                http::Response::builder()
+                    .status(200)
+                    .header("content-type", "application/json")
+                    .body(axum::body::Body::from(
+                        serde_json::to_string(&body).unwrap(),
+                    ))
+                    .unwrap()
+            }),
         }]
     }
+}
+
+/// Builds a 404 response.
+fn not_found(message: &str) -> http::Response<axum::body::Body> {
+    let body = serde_json::json!({ "error": message });
+    http::Response::builder()
+        .status(404)
+        .header("content-type", "application/json")
+        .body(axum::body::Body::from(
+            serde_json::to_string(&body).unwrap(),
+        ))
+        .unwrap()
+}
+
+/// Reads the stream key out of a request.
+///
+/// The key is either the `stream` query parameter or the path behind `/flv/`, so both
+/// `/flv/live/demo.flv` and `/flv?stream=live/demo` work.
+fn extract_stream_key(req: &http::Request<axum::body::Body>) -> Option<String> {
+    if let Some(query) = req.uri().query() {
+        for pair in query.split('&') {
+            if let Some((name, value)) = pair.split_once('=') {
+                if name == "stream" {
+                    let decoded = percent_decode(value);
+                    if !decoded.is_empty() {
+                        return Some(decoded);
+                    }
+                }
+            }
+        }
+    }
+
+    let path = req.uri().path();
+    let rest = path.strip_prefix("/flv/")?;
+    let rest = rest.strip_suffix(".flv").unwrap_or(rest);
+    let decoded = percent_decode(rest);
+    if decoded.is_empty() {
+        None
+    } else {
+        Some(decoded)
+    }
+}
+
+/// Decodes the percent escapes of a URL component.
+fn percent_decode(value: &str) -> String {
+    let bytes = value.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            let hex = std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or("");
+            if let Ok(byte) = u8::from_str_radix(hex, 16) {
+                out.push(byte);
+                i += 3;
+                continue;
+            }
+        }
+        out.push(bytes[i]);
+        i += 1;
+    }
+
+    String::from_utf8_lossy(&out).into_owned()
 }
 
 impl Clone for RtmpPlugin {
@@ -280,6 +441,7 @@ impl Clone for RtmpPlugin {
             ctx: self.ctx.clone(),
             next_session_id: Arc::clone(&self.next_session_id),
             sessions: Arc::clone(&self.sessions),
+            registry: Arc::clone(&self.registry),
             stop_tx: None,
             server_thread: None,
         }

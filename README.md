@@ -11,6 +11,9 @@ server at runtime. The engine, the HTTP API, the CLI and the TUI all live in a s
 
 - **RTMP ingest** — handshake, chunked message decoding, AMF0 commands. Publishers can
   push with ffmpeg and the server detects the codecs from the first media packet.
+- **RTMP playback** — players can pull a live stream back. The server hands out the
+  cached sequence headers and the `onMetaData` script message, then forwards the frames.
+- **HTTP-FLV** — the same live stream over HTTP, so browsers can play it with flv.js.
 - **Plugin system** — plugins are shared objects loaded with `dlopen` at runtime. They
   can serve their own HTTP routes and receive every event the engine publishes.
 - **HTTP control API** — health, statistics, live streams and plugin information.
@@ -59,6 +62,19 @@ ffmpeg -re -i input.mp4 \
 The stream shows up under `/api/streams` with the detected codecs, and in the TUI under
 the *Connections* tab.
 
+Playing it back over RTMP:
+
+```sh
+ffmpeg -i rtmp://127.0.0.1:1935/live/demo -f null -
+```
+
+Or over HTTP-FLV, which browsers can play with
+[flv.js](https://github.com/xgwang/ flv.js):
+
+```
+http://127.0.0.1:8080/flv/live/demo.flv
+```
+
 ## HTTP API
 
 | Endpoint | Description |
@@ -69,7 +85,8 @@ the *Connections* tab.
 | `GET /api/plugins` | the loaded plugins and the routes they advertise |
 | `GET /api/plugins/:name` | the routes of a single plugin |
 
-Plugins mount their own routes, for example `GET /api/rtmp/sessions`.
+Plugins mount their own routes, for example `GET /api/rtmp/sessions`,
+`GET /api/rtmp/streams` and `GET /flv/:key`.
 
 ## Tests
 
@@ -79,8 +96,17 @@ make test                     # debug profile
 ```
 
 The integration test builds the workspace, deploys the plugins, starts the engine,
-pushes an RTMP stream with ffmpeg and asserts that the API reports it, that the stream
+pushes an RTMP stream with ffmpeg and asserts that the API reports it, that a player can
+pull it back, that the HTTP-FLV endpoint serves the same stream, that the stream
 disappears when the publisher stops and that the engine shuts down cleanly.
+
+The unit tests cover the parts that are easy to get subtly wrong: the chunk decoder
+(header formats, chunk splitting, per stream state), the AMF0 codec and the parsing of
+the H.264 SPS and the AAC configuration.
+
+```sh
+cargo test --workspace
+```
 
 ## Writing a plugin
 

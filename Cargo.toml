@@ -20,6 +20,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 anyhow = "1"
 thiserror = "1"
 bytes = "1"
+futures-core = "0.3"
 libloading = "0.8"
 crossbeam-channel = "0.5"
 flume = "0.11"
