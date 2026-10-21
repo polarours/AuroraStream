@@ -1,0 +1,18 @@
+[package]
+name = "aurora-ffi"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "aurora_ffi"
+crate-type = ["lib"]
+
+[dependencies]
+bytes.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[build-dependencies]
+bindgen = "0.69"
+cmake = "0.1"
+pkg-config = "0.3"

@@ -1,0 +1,21 @@
+# Rust build output
+/target/
+
+# Plugin shared objects are build artifacts, rebuilt with `make plugins`.
+# They are ~90 MB each, far too large for the repository.
+plugins/*.so
+plugins/*.dylib
+plugins/*.dll
+!plugins/.gitkeep
+
+# Local runtime files
+*.log
+*.pid
+
+# Editor and OS noise
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/

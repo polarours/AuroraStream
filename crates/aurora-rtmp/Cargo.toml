@@ -1,0 +1,21 @@
+[package]
+name = "aurora-rtmp"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "aurora_rtmp"
+crate-type = ["cdylib"]
+
+[dependencies]
+aurora-core.workspace = true
+tokio.workspace = true
+bytes.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+parking_lot.workspace = true
+axum.workspace = true
+http.workspace = true

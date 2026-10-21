@@ -1,0 +1,20 @@
+pub mod cli;
+pub mod config;
+pub mod engine;
+pub mod error;
+pub mod event_bus;
+pub mod http_gateway;
+pub mod media;
+pub mod memory_pool;
+pub mod plugin;
+pub mod plugin_loader;
+pub mod stats;
+pub mod tui;
+
+pub use config::Config;
+pub use engine::Engine;
+pub use error::{AuroraError, Result};
+pub use event_bus::EventBus;
+pub use memory_pool::MemoryPool;
+pub use plugin::{LogLevel, LogSink, Plugin, PluginContext};
+pub use stats::ServerStats;

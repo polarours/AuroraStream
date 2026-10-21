@@ -1,0 +1,21 @@
+# Plugin ABI requirement
+#
+# Plugins are loaded at runtime via `dlopen` (see crates/aurora-core/src/plugin_loader.rs).
+# A plugin `.so` statically links its own copy of Tokio and std unless we ask rustc to
+# link Rust dependencies dynamically. Two copies of Tokio in one process means:
+#
+#   * the plugin's Tokio runtime context (a thread-local in Tokio) is invisible to the
+#     host's runtime, so `tokio::net::TcpListener::from_std` / `tokio::spawn` panic with
+#     "there is no reactor running", and
+#   * `tokio::sync::mpsc` channels inside `EventBus` are implemented by two different
+#     copies of the same crate, operating on each other's memory.
+#
+# With `prefer-dynamic` both the host binary and the plugin `.so` resolve Tokio and std
+# to the *same* shared object at load time, so the plugin observes the host's runtime
+# context and the event bus channels are a single implementation.
+#
+# This must stay in effect for every cargo invocation in this workspace: the host and the
+# plugins must agree on the shared library hashes, otherwise the plugin would fall back
+# to its own private copies.
+[build]
+rustflags = ["-C", "prefer-dynamic"]
