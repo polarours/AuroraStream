@@ -33,7 +33,7 @@ cleanup() {
         kill -9 "$SERVER_PID" 2>/dev/null || true
         wait "$SERVER_PID" 2>/dev/null || true
     fi
-    # keep the log for inspection
+    rm -f "$LOG"
 }
 trap cleanup EXIT
 
@@ -119,7 +119,7 @@ echo "==> pushing an RTMP stream"
 ffmpeg -hide_banner -loglevel error -re \
     -f lavfi -i "testsrc=size=320x240:rate=15" \
     -f lavfi -i "sine=frequency=440" \
-    -c:v libx264 -preset ultrafast -t 25 -g 30 -c:a aac \
+    -c:v libx264 -preset ultrafast -t 120 -g 30 -c:a aac \
     -f flv "rtmp://127.0.0.1:$RTMP_PORT/$STREAM_KEY" &
 FFMPEG_PID=$!
 
@@ -145,9 +145,24 @@ SESSIONS="$(curl -fsS -m 2 "http://127.0.0.1:$HTTP_PORT/api/rtmp/sessions")"
 check "the plugin route reports the session" '"state":"publishing"' "$SESSIONS"
 check "the session counted the bytes" '"bytes_received":' "$SESSIONS"
 
+echo "==> playing the stream back"
+# The output goes to a file: a command substitution would keep its pipe open until
+# every writer closed it, and the publisher writes to the same terminal.
+PLAYBACK_FILE="$(mktemp -t aurora-playback-XXXXXX.log)"
+# The playback is bounded by `-t`: the server rebases the timeline of a late joining
+# player to zero, so the duration is measured from the moment the player joined.
+timeout --foreground -k 2 20 ffmpeg -hide_banner -loglevel info \
+    -i "rtmp://127.0.0.1:$RTMP_PORT/$STREAM_KEY" -t 3 -f null - > "$PLAYBACK_FILE" 2>&1 || true
+PLAYBACK="$(cat "$PLAYBACK_FILE")"
+rm -f "$PLAYBACK_FILE"
+check "the player got a video stream" "Video: h264" "$PLAYBACK"
+check "the player got an audio stream" "Audio: aac" "$PLAYBACK"
+check "the player sees the published dimensions" "320x240" "$PLAYBACK"
+check "the player decoded frames" "frame=" "$PLAYBACK"
+
 echo "==> fetching the stream over HTTP-FLV"
 FLV_FILE="$(mktemp -t aurora-flv-XXXXXX.flv)"
-timeout 6 curl -s -N "http://127.0.0.1:$HTTP_PORT/flv/$STREAM_KEY.flv" -o "$FLV_FILE" || true
+curl --max-time 6 -s -N "http://127.0.0.1:$HTTP_PORT/flv/$STREAM_KEY.flv" -o "$FLV_FILE" || true
 if [[ -s "$FLV_FILE" ]]; then
     ok "the HTTP-FLV endpoint delivered data"
 else
@@ -160,17 +175,8 @@ check "the FLV stream has the published width" "320" "$PROBE"
 check "the FLV stream has the published height" "240" "$PROBE"
 rm -f "$FLV_FILE"
 
-echo "==> playing the stream back"
-PLAYBACK="$(timeout 20 ffmpeg -hide_banner -loglevel info \
-    -i "rtmp://127.0.0.1:$RTMP_PORT/$STREAM_KEY" -t 3 -f null - 2>&1 || true)"
-check "the player got a video stream" "Video: h264" "$PLAYBACK"
-check "the player got an audio stream" "Audio: aac" "$PLAYBACK"
-check "the player sees the published dimensions" "320x240" "$PLAYBACK"
-check "the player decoded frames" "frame=" "$PLAYBACK"
-
-wait "$FFMPEG_PID" 2>/dev/null || true
-
-echo "==> waiting for the publisher to stop"
+echo "==> stopping the publisher"
+kill "$FFMPEG_PID" 2>/dev/null || true
 wait "$FFMPEG_PID" 2>/dev/null || true
 FFMPEG_PID=""
 sleep 1

@@ -113,10 +113,17 @@ impl StreamRegistry {
             None => return,
         };
 
-        // Drop the players that went away.
-        stream
-            .subscribers
-            .retain(|tx| tx.send(StreamEvent::Packet(packet.clone())).is_ok());
+        // Drop the players that went away. The stream itself stays: a player that
+        // disconnects must never take the live stream down.
+        let mut dead = Vec::new();
+        for (index, tx) in stream.subscribers.iter().enumerate() {
+            if tx.send(StreamEvent::Packet(packet.clone())).is_err() {
+                dead.push(index);
+            }
+        }
+        for index in dead.into_iter().rev() {
+            stream.subscribers.remove(index);
+        }
     }
 
     /// Subscribes a player to a live stream.

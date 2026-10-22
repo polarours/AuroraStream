@@ -16,6 +16,8 @@ use crate::stream_registry::StreamEvent;
 pub struct FlvStream {
     receiver: tokio::sync::mpsc::UnboundedReceiver<StreamEvent>,
     prefix: Option<Bytes>,
+    /// The first timestamp of every stream, the timelines are rebased to them.
+    timeline_base: std::collections::HashMap<u8, u32>,
 }
 
 impl FlvStream {
@@ -26,6 +28,7 @@ impl FlvStream {
         Self {
             receiver,
             prefix: Some(prefix),
+            timeline_base: std::collections::HashMap::new(),
         }
     }
 }
@@ -47,11 +50,17 @@ impl Stream for FlvStream {
                 } else {
                     TAG_VIDEO
                 };
-                Poll::Ready(Some(Ok(flv_tag(
-                    tag_type,
-                    packet.timestamp,
-                    &packet.payload,
-                ))))
+                // A client that joins a running stream starts in the middle of the
+                // publisher timeline, so the timestamps are rebased to zero.
+                let timestamp = match this.timeline_base.get(&packet.msg_type_id) {
+                    Some(base) => packet.timestamp.saturating_sub(*base),
+                    None => {
+                        this.timeline_base
+                            .insert(packet.msg_type_id, packet.timestamp);
+                        0
+                    }
+                };
+                Poll::Ready(Some(Ok(flv_tag(tag_type, timestamp, &packet.payload))))
             }
             // The publisher went away or the client disconnected.
             Poll::Ready(Some(StreamEvent::Ended)) | Poll::Ready(None) => Poll::Ready(None),

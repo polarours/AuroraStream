@@ -622,9 +622,27 @@ impl RtmpSession {
                 let session_id = self.id;
                 let ctx = self.ctx.clone();
                 tokio::spawn(async move {
+                    // A player that joins a running stream starts in the middle of the
+                    // publisher timeline. The frames are rebased to zero so that the
+                    // player sees a stream that starts at zero, the way every other
+                    // streaming server does it.
+                    //
+                    // The audio and the video carry their own timestamp chains and drift
+                    // apart, so every stream is rebased on its own. Rebasing them
+                    // together would let one of them run backwards.
+                    let mut timeline_base: std::collections::HashMap<u8, u32> =
+                        std::collections::HashMap::new();
+
                     while let Some(event) = media_rx.recv().await {
                         match event {
                             StreamEvent::Packet(packet) => {
+                                let timestamp = match timeline_base.get(&packet.msg_type_id) {
+                                    Some(base) => packet.timestamp.saturating_sub(*base),
+                                    None => {
+                                        timeline_base.insert(packet.msg_type_id, packet.timestamp);
+                                        0
+                                    }
+                                };
                                 let (msg_type_id, chunk_stream_id) =
                                     if packet.msg_type_id == MSG_AUDIO {
                                         (MSG_AUDIO, CSID_AUDIO)
@@ -635,7 +653,7 @@ impl RtmpSession {
                                     msg_type_id,
                                     msg_stream_id: STREAM_ID,
                                     chunk_stream_id,
-                                    timestamp: packet.timestamp,
+                                    timestamp,
                                     payload: packet.payload.into(),
                                 };
                                 if out_tx.send(outgoing).is_err() {

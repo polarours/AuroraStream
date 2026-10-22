@@ -130,8 +130,31 @@ The script passes in both the debug and the release profile.
 2. **Plugin ABI is not stable.** `*mut dyn Plugin` and `Result<(), AuroraError>` cross
    the shared object boundary. A `#[repr(C)]` versioned interface with a host provided
    service table is the planned replacement.
-3. **RTMP playback is not implemented.** `play` is answered and the event is published,
-   but nothing serves the stream back to a player.
-4. **The event bus is publish-only.** `EventBus::subscribe` has no callers; the engine
+3. **The event bus is publish-only.** `EventBus::subscribe` has no callers; the engine
    drains the queue and fans the events out to `Plugin::on_event` instead.
-5. **`MemoryPool` is unused.** It is created by the engine but nothing acquires from it.
+4. **`MemoryPool` is unused.** It is created by the engine but nothing acquires from it.
+5. **A live stream can disappear from the registry while its publisher is still
+   running.** The publisher keeps sending frames and `ensure()` re-creates the entry, but
+   a client that subscribes in the moment after the entry was removed gets a 404. The
+   entry is only ever removed by `StreamRegistry::remove`, which the publisher session
+   calls when it ends - so either a publisher session ends without a trace in the log,
+   or the registry the clients see is not the one the publisher writes to. The pointers of
+   both were compared and are identical, which points at the second. This still needs a
+   proper diagnosis; the symptom is visible in the integration test as a 404 on the
+   second HTTP-FLV request.
+
+## What the second round added
+
+- **RTMP playback.** A `StreamRegistry` holds the live streams: the metadata, the
+  cached AVC and AAC sequence headers and the subscribers. A player receives the
+  `onMetaData` script message and the sequence headers before the live frames start.
+- **HTTP-FLV.** `GET /flv/<key>.flv` serves the same stream as an FLV stream, so a
+  browser can play it with flv.js. The FLV container is written in Rust.
+- **The dimensions of a stream.** The AVC sequence header is parsed down to the picture
+  size, the AAC configuration yields the sample rate and the channel count.
+- **Timeline rebasing.** A player that joins a running stream gets the timestamps
+  rebased to zero. Audio and video carry their own timestamp chains and drift apart, so
+  every stream is rebased on its own - rebasing them together let one of them run
+  backwards.
+- **Unit tests** for the chunk decoder, the AMF0 codec and the FLV parsing, using bytes
+  taken from a real ffmpeg stream.
